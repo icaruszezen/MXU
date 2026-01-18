@@ -68,7 +68,7 @@ export interface MxuConfig {
 // 默认窗口大小
 export const defaultWindowSize: WindowSize = {
   width: 1000,
-  height: 600,
+  height: 618,
 };
 
 // 默认 MirrorChyan 设置

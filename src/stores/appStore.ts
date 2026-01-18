@@ -500,26 +500,44 @@ export const useAppStore = create<AppState>()(
       })),
       
       // 复制任务
-      duplicateTask: (instanceId, taskId) => set((state) => ({
-        instances: state.instances.map(i => {
-          if (i.id !== instanceId) return i;
-          
-          const taskIndex = i.selectedTasks.findIndex(t => t.id === taskId);
-          if (taskIndex === -1) return i;
-          
-          const originalTask = i.selectedTasks[taskIndex];
-          const newTask: SelectedTask = {
-            ...originalTask,
-            id: generateId(),
-            optionValues: { ...originalTask.optionValues },
-          };
-          
-          const tasks = [...i.selectedTasks];
-          tasks.splice(taskIndex + 1, 0, newTask);
-          
-          return { ...i, selectedTasks: tasks };
-        }),
-      })),
+      duplicateTask: (instanceId, taskId) => {
+        const state = get();
+        const instance = state.instances.find(i => i.id === instanceId);
+        if (!instance) return;
+        
+        const taskIndex = instance.selectedTasks.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) return;
+        
+        const originalTask = instance.selectedTasks[taskIndex];
+        
+        // 计算新任务的显示名称
+        let newCustomName: string;
+        if (originalTask.customName) {
+          newCustomName = `${originalTask.customName}（副本）`;
+        } else {
+          // 获取任务的原始 label
+          const taskDef = state.projectInterface?.task.find(t => t.name === originalTask.taskName);
+          const langKey = state.language === 'zh-CN' ? 'zh_cn' : 'en_us';
+          const originalLabel = state.resolveI18nText(taskDef?.label, langKey) || taskDef?.name || originalTask.taskName;
+          newCustomName = `${originalLabel}（副本）`;
+        }
+        
+        const newTask: SelectedTask = {
+          ...originalTask,
+          id: generateId(),
+          customName: newCustomName,
+          optionValues: { ...originalTask.optionValues },
+        };
+        
+        const tasks = [...instance.selectedTasks];
+        tasks.splice(taskIndex + 1, 0, newTask);
+        
+        set({
+          instances: state.instances.map(i => 
+            i.id === instanceId ? { ...i, selectedTasks: tasks } : i
+          ),
+        });
+      },
       
       // 上移任务
       moveTaskUp: (instanceId, taskId) => set((state) => ({

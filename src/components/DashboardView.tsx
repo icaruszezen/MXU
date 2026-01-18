@@ -6,27 +6,26 @@ import {
   Play,
   Pause,
   Circle,
-  Copy,
-  Edit3,
-  X,
   RefreshCw,
   Download,
   Unplug,
+  Maximize2,
+  Copy,
+  X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '@/stores/appStore';
 import { maaService } from '@/services/maaService';
 import { ContextMenu, useContextMenu, type MenuItem } from './ContextMenu';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.ui;
 
 interface InstanceCardProps {
   instanceId: string;
   instanceName: string;
   isActive: boolean;
   onSelect: () => void;
-  onRename: () => void;
-  onDuplicate: () => void;
-  onClose: () => void;
-  canClose: boolean;
 }
 
 function InstanceCard({
@@ -34,10 +33,6 @@ function InstanceCard({
   instanceName,
   isActive,
   onSelect,
-  onRename,
-  onDuplicate,
-  onClose,
-  canClose,
 }: InstanceCardProps) {
   const { t } = useTranslation();
   const {
@@ -51,6 +46,7 @@ function InstanceCard({
   const { state: menuState, show: showMenu, hide: hideMenu } = useContextMenu();
 
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const streamingRef = useRef(false);
   const lastFrameTimeRef = useRef(0);
   const frameIntervalRef = useRef(1000 / 3); // 中控台使用更低的帧率节省资源
@@ -170,6 +166,29 @@ function InstanceCard({
     return 'text-gray-400';
   };
 
+  // 全屏模式切换
+  const toggleFullscreen = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  // ESC 键退出全屏
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen]);
+
   // 保存截图
   const saveScreenshot = useCallback(async () => {
     if (!screenshotUrl) return;
@@ -184,6 +203,20 @@ function InstanceCard({
       // 静默处理
     }
   }, [screenshotUrl, instanceName]);
+
+  // 复制截图到剪贴板
+  const copyScreenshot = useCallback(async () => {
+    if (!screenshotUrl) return;
+    try {
+      const response = await fetch(screenshotUrl);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob }),
+      ]);
+    } catch (err) {
+      log.warn('复制截图失败:', err);
+    }
+  }, [screenshotUrl]);
 
   // 断开连接
   const disconnect = useCallback(async () => {
@@ -206,26 +239,13 @@ function InstanceCard({
     }
   }, [captureFrame]);
 
-  // 右键菜单
+  // 右键菜单（复用首页截图面板的菜单结构）
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
       const menuItems: MenuItem[] = [
-        {
-          id: 'rename',
-          label: t('contextMenu.renameTab'),
-          icon: Edit3,
-          onClick: onRename,
-        },
-        {
-          id: 'duplicate',
-          label: t('contextMenu.duplicateTab'),
-          icon: Copy,
-          onClick: onDuplicate,
-        },
-        { id: 'divider-1', label: '', divider: true },
         {
           id: 'stream',
           label: isStreaming
@@ -252,6 +272,15 @@ function InstanceCard({
           disabled: !isConnected,
           onClick: forceRefresh,
         },
+        { id: 'divider-1', label: '', divider: true },
+        {
+          id: 'fullscreen',
+          label: t('contextMenu.fullscreen'),
+          icon: Maximize2,
+          disabled: !screenshotUrl,
+          onClick: () => setIsFullscreen(true),
+        },
+        { id: 'divider-2', label: '', divider: true },
         {
           id: 'save',
           label: t('contextMenu.saveScreenshot'),
@@ -259,7 +288,14 @@ function InstanceCard({
           disabled: !screenshotUrl,
           onClick: saveScreenshot,
         },
-        { id: 'divider-2', label: '', divider: true },
+        {
+          id: 'copy',
+          label: t('contextMenu.copyScreenshot'),
+          icon: Copy,
+          disabled: !screenshotUrl,
+          onClick: copyScreenshot,
+        },
+        { id: 'divider-3', label: '', divider: true },
         {
           id: 'disconnect',
           label: t('contextMenu.disconnect'),
@@ -268,30 +304,21 @@ function InstanceCard({
           danger: true,
           onClick: disconnect,
         },
-        {
-          id: 'close',
-          label: t('contextMenu.closeTab'),
-          icon: X,
-          disabled: !canClose,
-          danger: true,
-          onClick: onClose,
-        },
       ];
 
       showMenu(e, menuItems);
     },
     [
       t,
+      instanceId,
       isConnected,
       isStreaming,
       screenshotUrl,
-      canClose,
-      onRename,
-      onDuplicate,
-      onClose,
-      toggleStreaming,
+      setInstanceScreenshotStreaming,
+      streamLoop,
       forceRefresh,
       saveScreenshot,
+      copyScreenshot,
       disconnect,
       showMenu,
     ]
@@ -390,6 +417,54 @@ function InstanceCard({
           onClose={hideMenu}
         />
       )}
+
+      {/* 全屏模态框 */}
+      {isFullscreen && screenshotUrl && (
+        <div 
+          className="fixed inset-0 z-50 bg-white/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-8"
+          onClick={toggleFullscreen}
+        >
+          {/* 卡片容器 */}
+          <div 
+            className="relative bg-bg-secondary rounded-xl border border-border shadow-2xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={handleContextMenu}
+          >
+            {/* 卡片标题栏 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-tertiary/50">
+              <div className="flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-text-secondary" />
+                <span className="text-sm font-medium text-text-primary">
+                  {instanceName}
+                </span>
+                {/* 流模式指示器 */}
+                {isStreaming && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-green-500/90 rounded text-white text-xs ml-2">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    LIVE
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={toggleFullscreen}
+                className="p-1.5 rounded-md hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-colors"
+                title={t('screenshot.exitFullscreen')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* 图片内容区 */}
+            <div className="p-4 bg-bg-primary flex items-center justify-center overflow-auto">
+              <img
+                src={screenshotUrl}
+                alt="Screenshot"
+                className="max-w-full max-h-[calc(90vh-80px)] object-contain rounded-md"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -401,22 +476,11 @@ export function DashboardView() {
     activeInstanceId,
     setActiveInstance,
     toggleDashboardView,
-    duplicateInstance,
-    removeInstance,
-    renameInstance,
   } = useAppStore();
 
   const handleSelectInstance = (instanceId: string) => {
     setActiveInstance(instanceId);
     toggleDashboardView();
-  };
-
-  const handleRename = (instanceId: string, currentName: string) => {
-    // TODO: 实现重命名弹窗
-    const newName = window.prompt('重命名实例', currentName);
-    if (newName && newName.trim()) {
-      renameInstance(instanceId, newName.trim());
-    }
   };
 
   return (
@@ -447,10 +511,6 @@ export function DashboardView() {
                 instanceName={instance.name}
                 isActive={instance.id === activeInstanceId}
                 onSelect={() => handleSelectInstance(instance.id)}
-                onRename={() => handleRename(instance.id, instance.name)}
-                onDuplicate={() => duplicateInstance(instance.id)}
-                onClose={() => removeInstance(instance.id)}
-                canClose={instances.length > 1}
               />
             ))}
           </div>
