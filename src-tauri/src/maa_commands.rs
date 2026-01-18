@@ -21,9 +21,31 @@ pub struct AdbDevice {
     pub name: String,
     pub adb_path: String,
     pub address: String,
+    #[serde(with = "u64_as_string")]
     pub screencap_methods: u64,
+    #[serde(with = "u64_as_string")]
     pub input_methods: u64,
     pub config: String,
+}
+
+/// 将 u64 序列化/反序列化为字符串，避免 JavaScript 精度丢失
+mod u64_as_string {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<u64>().map_err(serde::de::Error::custom)
+    }
 }
 
 /// Win32 窗口信息
@@ -41,8 +63,8 @@ pub enum ControllerConfig {
     Adb {
         adb_path: String,
         address: String,
-        screencap_methods: u64,
-        input_methods: u64,
+        screencap_methods: String,  // u64 作为字符串传递，避免 JS 精度丢失
+        input_methods: String,       // u64 作为字符串传递
         config: String,
     },
     Win32 {
@@ -389,25 +411,56 @@ pub async fn maa_connect_controller(
     config: ControllerConfig,
     agent_path: Option<String>,
 ) -> Result<(), String> {
-    let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
-    let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
+    println!("[MaaCommands] maa_connect_controller called");
+    println!("[MaaCommands] instance_id: {}", instance_id);
+    println!("[MaaCommands] config: {:?}", config);
+    println!("[MaaCommands] agent_path: {:?}", agent_path);
+    
+    let guard = MAA_LIBRARY.lock().map_err(|e| {
+        println!("[MaaCommands] Failed to lock MAA_LIBRARY: {}", e);
+        e.to_string()
+    })?;
+    let lib = guard.as_ref().ok_or_else(|| {
+        println!("[MaaCommands] MaaFramework not initialized");
+        "MaaFramework not initialized".to_string()
+    })?;
+    
+    println!("[MaaCommands] MaaFramework library loaded, creating controller...");
     
     let controller = unsafe {
         match &config {
             ControllerConfig::Adb { adb_path, address, screencap_methods, input_methods, config } => {
+                // 将字符串解析为 u64
+                let screencap_methods_u64 = screencap_methods.parse::<u64>().map_err(|e| {
+                    format!("Invalid screencap_methods '{}': {}", screencap_methods, e)
+                })?;
+                let input_methods_u64 = input_methods.parse::<u64>().map_err(|e| {
+                    format!("Invalid input_methods '{}': {}", input_methods, e)
+                })?;
+                
+                println!("[MaaCommands] Creating ADB controller:");
+                println!("[MaaCommands]   adb_path: {}", adb_path);
+                println!("[MaaCommands]   address: {}", address);
+                println!("[MaaCommands]   screencap_methods: {} (parsed: {})", screencap_methods, screencap_methods_u64);
+                println!("[MaaCommands]   input_methods: {} (parsed: {})", input_methods, input_methods_u64);
+                println!("[MaaCommands]   config: {}", config);
+                
                 let adb_path_c = to_cstring(adb_path);
                 let address_c = to_cstring(address);
                 let config_c = to_cstring(config);
                 let agent_path_c = to_cstring(agent_path.as_deref().unwrap_or(""));
                 
-                (lib.maa_adb_controller_create)(
+                println!("[MaaCommands] Calling MaaAdbControllerCreate...");
+                let ctrl = (lib.maa_adb_controller_create)(
                     adb_path_c.as_ptr(),
                     address_c.as_ptr(),
-                    *screencap_methods,
-                    *input_methods,
+                    screencap_methods_u64,
+                    input_methods_u64,
                     config_c.as_ptr(),
                     agent_path_c.as_ptr(),
-                )
+                );
+                println!("[MaaCommands] MaaAdbControllerCreate returned: {:?}", ctrl);
+                ctrl
             }
             ControllerConfig::Win32 { handle, screencap_method, mouse_method, keyboard_method } => {
                 (lib.maa_win32_controller_create)(
@@ -440,10 +493,14 @@ pub async fn maa_connect_controller(
     };
     
     if controller.is_null() {
+        println!("[MaaCommands] Controller creation failed (null pointer)");
         return Err("Failed to create controller".to_string());
     }
     
+    println!("[MaaCommands] Controller created successfully: {:?}", controller);
+    
     // 设置默认截图分辨率
+    println!("[MaaCommands] Setting screenshot target short side to 720...");
     unsafe {
         let short_side: i32 = 720;
         (lib.maa_controller_set_option)(
@@ -455,15 +512,19 @@ pub async fn maa_connect_controller(
     }
     
     // 发起连接
+    println!("[MaaCommands] Calling MaaControllerPostConnection...");
     let conn_id = unsafe { (lib.maa_controller_post_connection)(controller) };
+    println!("[MaaCommands] MaaControllerPostConnection returned conn_id: {}", conn_id);
     
     // 更新实例状态
+    println!("[MaaCommands] Updating instance state...");
     {
         let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
         
         // 清理旧的控制器
         if let Some(old_controller) = instance.controller.take() {
+            println!("[MaaCommands] Destroying old controller...");
             unsafe { (lib.maa_controller_destroy)(old_controller); }
         }
         
@@ -475,18 +536,22 @@ pub async fn maa_connect_controller(
     drop(guard);
     
     // 等待连接完成（在实际应用中应该使用异步轮询）
+    println!("[MaaCommands] Waiting for connection to complete...");
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
     
     let status = unsafe { (lib.maa_controller_wait)(controller, conn_id) };
+    println!("[MaaCommands] MaaControllerWait returned status: {}", status);
     
     let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
     let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
     
     if status == MAA_STATUS_SUCCEEDED {
+        println!("[MaaCommands] Connection succeeded!");
         instance.connection_status = ConnectionStatus::Connected;
         Ok(())
     } else {
+        println!("[MaaCommands] Connection failed with status: {}", status);
         instance.connection_status = ConnectionStatus::Failed("Connection failed".to_string());
         Err("Controller connection failed".to_string())
     }

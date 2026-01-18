@@ -5,8 +5,8 @@ export interface AdbDevice {
   name: string;
   adb_path: string;
   address: string;
-  screencap_methods: number;
-  input_methods: number;
+  screencap_methods: string;  // u64 作为字符串传递，避免 JS 精度丢失
+  input_methods: string;       // u64 作为字符串传递
   config: string;
 }
 
@@ -22,8 +22,8 @@ export interface AdbControllerConfig {
   type: 'Adb';
   adb_path: string;
   address: string;
-  screencap_methods: number;
-  input_methods: number;
+  screencap_methods: string;  // u64 作为字符串传递
+  input_methods: string;       // u64 作为字符串传递
   config: string;
 }
 

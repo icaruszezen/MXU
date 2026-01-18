@@ -190,12 +190,28 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
 
   // 连接设备
   const handleConnect = async () => {
+    console.log('[DeviceSelector] handleConnect called');
+    console.log('[DeviceSelector] controllerType:', controllerType);
+    console.log('[DeviceSelector] selectedAdbDevice:', selectedAdbDevice);
+    console.log('[DeviceSelector] selectedWindow:', selectedWindow);
+    
     setIsConnecting(true);
     setError(null);
 
     try {
+      // 确保 MaaFramework 已初始化（用户可能跳过刷新直接点连接）
+      console.log('[DeviceSelector] Ensuring MaaFramework initialized...');
+      const initialized = await ensureMaaInitialized();
+      console.log('[DeviceSelector] MaaFramework initialized:', initialized);
+      if (!initialized) {
+        throw new Error('无法初始化 MaaFramework，请确保 MaaFramework 动态库在正确的位置');
+      }
+
       // 确保实例已创建
-      await maaService.createInstance(instanceId).catch(() => {});
+      console.log('[DeviceSelector] Creating instance:', instanceId);
+      await maaService.createInstance(instanceId).catch((e) => {
+        console.log('[DeviceSelector] createInstance error (may be expected):', e);
+      });
 
       let config: ControllerConfig;
 
@@ -208,6 +224,7 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
           input_methods: selectedAdbDevice.input_methods,
           config: selectedAdbDevice.config,
         };
+        console.log('[DeviceSelector] Built Adb config:', config);
       } else if (controllerType === 'Win32' && selectedWindow) {
         config = {
           type: 'Win32',
@@ -216,27 +233,35 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
           mouse_method: parseWin32InputMethod(controllerDef.win32?.mouse || ''),
           keyboard_method: parseWin32InputMethod(controllerDef.win32?.keyboard || ''),
         };
+        console.log('[DeviceSelector] Built Win32 config:', config);
       } else if (controllerType === 'PlayCover') {
         config = {
           type: 'PlayCover',
           address: playcoverAddress,
         };
+        console.log('[DeviceSelector] Built PlayCover config:', config);
       } else if (controllerType === 'Gamepad' && selectedWindow) {
         config = {
           type: 'Gamepad',
           handle: selectedWindow.handle,
         };
+        console.log('[DeviceSelector] Built Gamepad config:', config);
       } else {
+        console.log('[DeviceSelector] No device selected, throwing error');
         throw new Error('请先选择设备');
       }
 
       // MaaAgentBinary 路径
       const agentPath = `${basePath}/MaaAgentBinary`;
+      console.log('[DeviceSelector] agentPath:', agentPath);
 
+      console.log('[DeviceSelector] Calling maaService.connectController...');
       await maaService.connectController(instanceId, config, agentPath);
+      console.log('[DeviceSelector] connectController succeeded');
       setIsConnected(true);
       onConnectionChange?.(true);
     } catch (err) {
+      console.error('[DeviceSelector] handleConnect error:', err);
       setError(err instanceof Error ? err.message : '连接失败');
       setIsConnected(false);
       onConnectionChange?.(false);

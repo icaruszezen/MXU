@@ -118,16 +118,32 @@ export const maaService = {
     config: ControllerConfig,
     agentPath?: string
   ): Promise<void> {
+    console.log('[maaService] connectController called');
+    console.log('[maaService] instanceId:', instanceId);
+    console.log('[maaService] config:', JSON.stringify(config, null, 2));
+    console.log('[maaService] agentPath:', agentPath);
+    console.log('[maaService] isTauri():', isTauri());
+    
     if (!isTauri()) {
+      console.log('[maaService] Not in Tauri env, simulating delay...');
       // 模拟连接延迟
       await new Promise(resolve => setTimeout(resolve, 1000));
       return;
     }
-    return await invoke('maa_connect_controller', {
-      instanceId,
-      config,
-      agentPath: agentPath || null,
-    });
+    
+    console.log('[maaService] Invoking maa_connect_controller...');
+    try {
+      const result = await invoke('maa_connect_controller', {
+        instanceId,
+        config,
+        agentPath: agentPath || null,
+      });
+      console.log('[maaService] maa_connect_controller result:', result);
+      return result as void;
+    } catch (err) {
+      console.error('[maaService] maa_connect_controller error:', err);
+      throw err;
+    }
   },
 
   /**
