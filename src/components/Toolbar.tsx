@@ -77,12 +77,12 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
         const optionDef = projectInterface.option?.[optionKey];
         if (!optionDef) continue;
 
-        if (optionValue.type === 'select' || optionValue.type === 'switch') {
+        if ((optionValue.type === 'select' || optionValue.type === 'switch') && 'cases' in optionDef) {
           const caseName = optionValue.type === 'switch' 
             ? (optionValue.value ? 'Yes' : 'No')
             : optionValue.caseName;
           
-          const caseDef = optionDef.cases?.find(c => c.name === caseName);
+          const caseDef = optionDef.cases?.find((c) => c.name === caseName);
           if (caseDef?.pipeline_override) {
             Object.assign(overrides, caseDef.pipeline_override);
           }

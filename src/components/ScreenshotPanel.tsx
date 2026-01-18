@@ -12,6 +12,7 @@ export function ScreenshotPanel() {
     setIsRefreshing(true);
     // TODO: 实现截图刷新逻辑
     await new Promise((resolve) => setTimeout(resolve, 500));
+    setScreenshotUrl((prev) => prev);
     setIsRefreshing(false);
   };
 
