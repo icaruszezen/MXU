@@ -1,6 +1,6 @@
 /**
  * 统一日志服务
- * 基于 loglevel 实现，支持模块化日志、日志级别控制
+ * 基于 loglevel 实现，支持模块化日志、日志级别控制、文件日志
  */
 
 import log from 'loglevel';
@@ -12,17 +12,69 @@ export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
 const isDev = import.meta.env.DEV;
 const defaultLevel: LogLevel = isDev ? 'debug' : 'warn';
 
+// 检测是否在 Tauri 环境中
+const isTauri = () => typeof window !== 'undefined' && '__TAURI__' in window;
+
+// 文件日志配置
+let logsDir: string | null = null;
+
+/**
+ * 初始化文件日志（自动获取 exe 目录）
+ */
+async function initFileLogger(): Promise<void> {
+  if (!isTauri() || logsDir) return;
+  
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const exeDir = await invoke<string>('get_exe_dir');
+    logsDir = `${exeDir.replace(/\\/g, '/').replace(/\/$/, '')}/logs`;
+    
+    const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+    if (!await exists(logsDir)) {
+      await mkdir(logsDir, { recursive: true });
+    }
+    console.log('[Logger] File logger initialized, logs dir:', logsDir);
+  } catch (err) {
+    console.warn('[Logger] Failed to initialize file logger:', err);
+    logsDir = null;
+  }
+}
+
+// 模块加载时立即初始化文件日志
+if (isTauri()) {
+  initFileLogger();
+}
+
+/**
+ * 直接写入日志到文件
+ */
+async function writeLogToFile(line: string): Promise<void> {
+  if (!logsDir) return;
+  
+  // 日志文件名：mxu-YYYY-MM-DD.log
+  const today = new Date().toISOString().slice(0, 10);
+  const logFile = `${logsDir}/mxu-${today}.log`;
+  
+  try {
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    await writeTextFile(logFile, line + '\n', { append: true });
+  } catch {
+    // 写入失败时静默处理
+  }
+}
+
 // 配置根日志器
 log.setLevel(defaultLevel);
 
-// 日志前缀格式化（带时间戳和模块名）
+// 日志前缀格式化（带时间戳和模块名）+ 文件日志
 const originalFactory = log.methodFactory;
 
 log.methodFactory = function (methodName, logLevel, loggerName) {
   const rawMethod = originalFactory(methodName, logLevel, loggerName);
 
   return function (...args: unknown[]) {
-    const timestamp = new Date().toLocaleTimeString('zh-CN', {
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString('zh-CN', {
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
@@ -30,6 +82,17 @@ log.methodFactory = function (methodName, logLevel, loggerName) {
     });
     const prefix = loggerName ? `[${timestamp}][${String(loggerName)}]` : `[${timestamp}]`;
     rawMethod(prefix, ...args);
+    
+    // 写入文件日志
+    if (logsDir) {
+      const fullTimestamp = now.toISOString().replace('T', ' ').slice(0, 19);
+      const level = methodName.toUpperCase().padEnd(5);
+      const module = loggerName ? `[${String(loggerName)}]` : '';
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ');
+      writeLogToFile(`${fullTimestamp} ${level} ${module} ${message}`);
+    }
   };
 };
 
@@ -44,12 +107,13 @@ log.setLevel(log.getLevel());
 export function createLogger(moduleName: string, level?: LogLevel) {
   const logger = log.getLogger(moduleName);
 
-  // 应用自定义格式
+  // 应用自定义格式 + 文件日志
   logger.methodFactory = function (methodName, logLevel, loggerName) {
     const rawMethod = originalFactory(methodName, logLevel, loggerName);
 
     return function (...args: unknown[]) {
-      const timestamp = new Date().toLocaleTimeString('zh-CN', {
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString('zh-CN', {
         hour12: false,
         hour: '2-digit',
         minute: '2-digit',
@@ -57,6 +121,17 @@ export function createLogger(moduleName: string, level?: LogLevel) {
       });
       const prefix = `[${timestamp}][${String(loggerName)}]`;
       rawMethod(prefix, ...args);
+      
+      // 写入文件日志
+      if (logsDir) {
+        const fullTimestamp = now.toISOString().replace('T', ' ').slice(0, 19);
+        const level = methodName.toUpperCase().padEnd(5);
+        const module = loggerName ? `[${String(loggerName)}]` : '';
+        const message = args.map(arg => 
+          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        ).join(' ');
+        writeLogToFile(`${fullTimestamp} ${level} ${module} ${message}`);
+      }
     };
   };
 

@@ -194,7 +194,7 @@ impl Default for MaaState {
 // ============================================================================
 
 /// 获取可执行文件所在目录下的 maafw 子目录
-fn get_maafw_dir() -> Result<PathBuf, String> {
+pub fn get_maafw_dir() -> Result<PathBuf, String> {
     let exe_path = std::env::current_exe()
         .map_err(|e| format!("Failed to get executable path: {}", e))?;
     let exe_dir = exe_path.parent()

@@ -151,6 +151,9 @@ type FnMaaToolkitDesktopWindowGetHandle = unsafe extern "C" fn(*const MaaToolkit
 type FnMaaToolkitDesktopWindowGetClassName = unsafe extern "C" fn(*const MaaToolkitDesktopWindow) -> *const c_char;
 type FnMaaToolkitDesktopWindowGetWindowName = unsafe extern "C" fn(*const MaaToolkitDesktopWindow) -> *const c_char;
 
+// Toolkit - Config
+type FnMaaToolkitConfigInitOption = unsafe extern "C" fn(*const c_char, *const c_char) -> MaaBool;
+
 // AgentClient
 type FnMaaAgentClientCreateV2 = unsafe extern "C" fn(*const MaaStringBuffer) -> *mut MaaAgentClient;
 type FnMaaAgentClientDestroy = unsafe extern "C" fn(*mut MaaAgentClient);
@@ -238,6 +241,9 @@ pub struct MaaLibrary {
     pub maa_toolkit_desktop_window_get_handle: FnMaaToolkitDesktopWindowGetHandle,
     pub maa_toolkit_desktop_window_get_class_name: FnMaaToolkitDesktopWindowGetClassName,
     pub maa_toolkit_desktop_window_get_window_name: FnMaaToolkitDesktopWindowGetWindowName,
+    
+    // Toolkit - Config
+    pub maa_toolkit_config_init_option: FnMaaToolkitConfigInitOption,
     
     // AgentClient
     pub maa_agent_client_create_v2: FnMaaAgentClientCreateV2,
@@ -393,6 +399,9 @@ impl MaaLibrary {
                 maa_toolkit_desktop_window_get_class_name: load_fn!(toolkit_lib, "MaaToolkitDesktopWindowGetClassName"),
                 maa_toolkit_desktop_window_get_window_name: load_fn!(toolkit_lib, "MaaToolkitDesktopWindowGetWindowName"),
                 
+                // Toolkit - Config
+                maa_toolkit_config_init_option: load_fn!(toolkit_lib, "MaaToolkitConfigInitOption"),
+                
                 // AgentClient
                 maa_agent_client_create_v2: load_fn!(agent_client_lib, "MaaAgentClientCreateV2"),
                 maa_agent_client_destroy: load_fn!(agent_client_lib, "MaaAgentClientDestroy"),
@@ -426,6 +435,17 @@ pub static MAA_LIBRARY: Lazy<Mutex<Option<MaaLibrary>>> = Lazy::new(|| Mutex::ne
 /// 初始化 MaaFramework 库
 pub fn init_maa_library(lib_dir: &Path) -> Result<(), String> {
     let lib = MaaLibrary::load(lib_dir)?;
+    
+    // 初始化 Toolkit 配置，user_path 使用 maafw 目录的绝对路径
+    let user_path_str = lib_dir.to_string_lossy();
+    let user_path = to_cstring(&user_path_str);
+    let default_json = to_cstring("{}");
+    println!("[MaaFFI] MaaToolkitConfigInitOption user_path: {}", user_path_str);
+    let result = unsafe {
+        (lib.maa_toolkit_config_init_option)(user_path.as_ptr(), default_json.as_ptr())
+    };
+    println!("[MaaFFI] MaaToolkitConfigInitOption result: {}", result);
+    
     let mut guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     *guard = Some(lib);
     Ok(())

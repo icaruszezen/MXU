@@ -14,6 +14,19 @@ pub fn run() {
         .setup(|app| {
             // 存储 AppHandle 供 MaaFramework 回调使用
             maa_ffi::set_app_handle(app.handle().clone());
+            
+            // 启动时自动加载 MaaFramework DLL
+            if let Ok(maafw_dir) = maa_commands::get_maafw_dir() {
+                if maafw_dir.exists() {
+                    match maa_ffi::init_maa_library(&maafw_dir) {
+                        Ok(()) => println!("[MXU] MaaFramework loaded from {:?}", maafw_dir),
+                        Err(e) => println!("[MXU] Failed to load MaaFramework: {}", e),
+                    }
+                } else {
+                    println!("[MXU] MaaFramework directory not found: {:?}", maafw_dir);
+                }
+            }
+            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
