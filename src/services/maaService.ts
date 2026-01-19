@@ -64,24 +64,31 @@ export const maaService = {
    */
   async setResourceDir(resourceDir: string): Promise<void> {
     if (!isTauri()) return;
-    log.debug('设置资源目录:', resourceDir);
-    return await invoke('maa_set_resource_dir', { resourceDir });
+    log.info('设置资源目录:', resourceDir);
+    await invoke('maa_set_resource_dir', { resourceDir });
+    log.info('设置资源目录成功');
   },
 
   /**
    * 获取 MaaFramework 版本
    */
   async getVersion(): Promise<string> {
-    return await invoke<string>('maa_get_version');
+    log.debug('获取 MaaFramework 版本...');
+    const version = await invoke<string>('maa_get_version');
+    log.info('MaaFramework 版本:', version);
+    return version;
   },
 
   /**
    * 查找 ADB 设备
    */
   async findAdbDevices(): Promise<AdbDevice[]> {
-    log.debug('搜索 ADB 设备...');
+    log.info('搜索 ADB 设备...');
     const devices = await invoke<AdbDevice[]>('maa_find_adb_devices');
     log.info('找到 ADB 设备:', devices.length, '个');
+    devices.forEach((device, i) => {
+      log.debug(`  设备[${i}]: name=${device.name}, address=${device.address}, adb_path=${device.adb_path}`);
+    });
     return devices;
   },
 
@@ -91,12 +98,15 @@ export const maaService = {
    * @param windowRegex 窗口标题正则表达式（可选）
    */
   async findWin32Windows(classRegex?: string, windowRegex?: string): Promise<Win32Window[]> {
-    log.debug('搜索 Win32 窗口, classRegex:', classRegex, 'windowRegex:', windowRegex);
+    log.info('搜索 Win32 窗口, classRegex:', classRegex || '(无)', ', windowRegex:', windowRegex || '(无)');
     const windows = await invoke<Win32Window[]>('maa_find_win32_windows', {
       classRegex: classRegex || null,
       windowRegex: windowRegex || null,
     });
     log.info('找到 Win32 窗口:', windows.length, '个');
+    windows.forEach((win, i) => {
+      log.debug(`  窗口[${i}]: handle=${win.handle}, class=${win.class_name}, name=${win.window_name}`);
+    });
     return windows;
   },
 
@@ -106,8 +116,9 @@ export const maaService = {
    */
   async createInstance(instanceId: string): Promise<void> {
     if (!isTauri()) return;
-    log.debug('创建实例:', instanceId);
-    return await invoke('maa_create_instance', { instanceId });
+    log.info('创建实例:', instanceId);
+    await invoke('maa_create_instance', { instanceId });
+    log.info('创建实例成功:', instanceId);
   },
 
   /**
@@ -116,8 +127,9 @@ export const maaService = {
    */
   async destroyInstance(instanceId: string): Promise<void> {
     if (!isTauri()) return;
-    log.debug('销毁实例:', instanceId);
-    return await invoke('maa_destroy_instance', { instanceId });
+    log.info('销毁实例:', instanceId);
+    await invoke('maa_destroy_instance', { instanceId });
+    log.info('销毁实例成功:', instanceId);
   },
 
   /**
@@ -160,7 +172,10 @@ export const maaService = {
    */
   async getConnectionStatus(instanceId: string): Promise<ConnectionStatus> {
     if (!isTauri()) return 'Disconnected';
-    return await invoke<ConnectionStatus>('maa_get_connection_status', { instanceId });
+    log.debug('获取连接状态, 实例:', instanceId);
+    const status = await invoke<ConnectionStatus>('maa_get_connection_status', { instanceId });
+    log.debug('连接状态:', instanceId, '->', status);
+    return status;
   },
 
   /**
@@ -170,7 +185,10 @@ export const maaService = {
    * @returns 资源加载请求 ID 列表，通过监听 maa-callback 事件获取完成状态
    */
   async loadResource(instanceId: string, paths: string[]): Promise<number[]> {
-    log.info('加载资源, 实例:', instanceId, '路径数:', paths.length);
+    log.info('加载资源, 实例:', instanceId, ', 路径数:', paths.length);
+    paths.forEach((path, i) => {
+      log.debug(`  路径[${i}]: ${path}`);
+    });
     if (!isTauri()) {
       return paths.map((_, i) => i + 1);
     }
@@ -185,7 +203,10 @@ export const maaService = {
    */
   async isResourceLoaded(instanceId: string): Promise<boolean> {
     if (!isTauri()) return false;
-    return await invoke<boolean>('maa_is_resource_loaded', { instanceId });
+    log.debug('检查资源是否已加载, 实例:', instanceId);
+    const loaded = await invoke<boolean>('maa_is_resource_loaded', { instanceId });
+    log.debug('资源加载状态:', instanceId, '->', loaded);
+    return loaded;
   },
 
   /**
@@ -196,15 +217,17 @@ export const maaService = {
    * @returns 任务 ID
    */
   async runTask(instanceId: string, entry: string, pipelineOverride: string = '{}'): Promise<number> {
-    log.info('运行任务, 实例:', instanceId, '入口:', entry);
+    log.info('运行任务, 实例:', instanceId, ', 入口:', entry, ', pipelineOverride:', pipelineOverride);
     if (!isTauri()) {
       return Math.floor(Math.random() * 10000);
     }
-    return await invoke<number>('maa_run_task', {
+    const taskId = await invoke<number>('maa_run_task', {
       instanceId,
       entry,
       pipelineOverride,
     });
+    log.info('任务已提交, taskId:', taskId);
+    return taskId;
   },
 
   /**
@@ -214,7 +237,10 @@ export const maaService = {
    */
   async getTaskStatus(instanceId: string, taskId: number): Promise<TaskStatus> {
     if (!isTauri()) return 'Pending';
-    return await invoke<TaskStatus>('maa_get_task_status', { instanceId, taskId });
+    log.debug('获取任务状态, 实例:', instanceId, ', taskId:', taskId);
+    const status = await invoke<TaskStatus>('maa_get_task_status', { instanceId, taskId });
+    log.debug('任务状态:', taskId, '->', status);
+    return status;
   },
 
   /**
@@ -224,7 +250,8 @@ export const maaService = {
   async stopTask(instanceId: string): Promise<void> {
     log.info('停止任务, 实例:', instanceId);
     if (!isTauri()) return;
-    return await invoke('maa_stop_task', { instanceId });
+    await invoke('maa_stop_task', { instanceId });
+    log.info('停止任务请求已发送');
   },
 
   /**
@@ -233,7 +260,10 @@ export const maaService = {
    */
   async isRunning(instanceId: string): Promise<boolean> {
     if (!isTauri()) return false;
-    return await invoke<boolean>('maa_is_running', { instanceId });
+    log.debug('检查是否正在运行, 实例:', instanceId);
+    const running = await invoke<boolean>('maa_is_running', { instanceId });
+    log.debug('运行状态:', instanceId, '->', running);
+    return running;
   },
 
   /**
@@ -272,16 +302,24 @@ export const maaService = {
     agentConfig?: AgentConfig,
     cwd?: string
   ): Promise<number[]> {
-    log.info('启动任务, 实例:', instanceId, '任务数:', tasks.length);
+    log.info('启动任务, 实例:', instanceId, ', 任务数:', tasks.length, ', cwd:', cwd || '.');
+    tasks.forEach((task, i) => {
+      log.debug(`  任务[${i}]: entry=${task.entry}, pipelineOverride=${task.pipeline_override}`);
+    });
+    if (agentConfig) {
+      log.info('Agent 配置:', JSON.stringify(agentConfig));
+    }
     if (!isTauri()) {
       return tasks.map((_, i) => i + 1);
     }
-    return await invoke<number[]>('maa_start_tasks', {
+    const taskIds = await invoke<number[]>('maa_start_tasks', {
       instanceId,
       tasks,
       agentConfig: agentConfig || null,
       cwd: cwd || '.',
     });
+    log.info('任务已提交, taskIds:', taskIds);
+    return taskIds;
   },
 
   /**
@@ -291,7 +329,8 @@ export const maaService = {
   async stopAgent(instanceId: string): Promise<void> {
     log.info('停止 Agent, 实例:', instanceId);
     if (!isTauri()) return;
-    return await invoke('maa_stop_agent', { instanceId });
+    await invoke('maa_stop_agent', { instanceId });
+    log.info('停止 Agent 成功');
   },
 
   /**

@@ -1,12 +1,14 @@
 //! Tauri 命令实现
-//! 
+//!
 //! 提供前端调用的 MaaFramework 功能接口
 
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
+use std::fs::OpenOptions;
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use serde::{Deserialize, Serialize};
@@ -20,6 +22,19 @@ use crate::maa_ffi::{
     MAA_STATUS_PENDING, MAA_STATUS_RUNNING, MAA_STATUS_SUCCEEDED,
     MAA_WIN32_SCREENCAP_DXGI_DESKTOPDUP,
 };
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+/// 获取 exe 所在目录下的 logs 子目录
+fn get_logs_dir() -> PathBuf {
+    let exe_path = std::env::current_exe().unwrap_or_default();
+    let exe_dir = exe_path
+        .parent()
+        .unwrap_or(std::path::Path::new("."));
+    exe_dir.join("logs")
+}
 
 // ============================================================================
 // 数据类型定义
@@ -218,74 +233,79 @@ pub fn get_maafw_dir() -> Result<PathBuf, String> {
 /// 如果提供 lib_dir 则使用该路径，否则自动从 exe 目录/maafw 加载
 #[tauri::command]
 pub fn maa_init(state: State<MaaState>, lib_dir: Option<String>) -> Result<String, String> {
-    println!("[MaaCommands] maa_init called, lib_dir: {:?}", lib_dir);
-    
+    info!("maa_init called, lib_dir: {:?}", lib_dir);
+
     let lib_path = match lib_dir {
         Some(dir) if !dir.is_empty() => PathBuf::from(&dir),
         _ => get_maafw_dir()?,
     };
-    
-    println!("[MaaCommands] maa_init using path: {:?}", lib_path);
-    
+
+    info!("maa_init using path: {:?}", lib_path);
+
     if !lib_path.exists() {
         let err = format!(
             "MaaFramework library directory not found: {}",
             lib_path.display()
         );
-        println!("[MaaCommands] {}", err);
+        error!("{}", err);
         return Err(err);
     }
-    
-    println!("[MaaCommands] maa_init loading library...");
+
+    info!("maa_init loading library...");
     init_maa_library(&lib_path)?;
-    
+
     let version = get_maa_version().unwrap_or_default();
-    println!("[MaaCommands] maa_init success, version: {}", version);
-    
+    info!("maa_init success, version: {}", version);
+
     *state.lib_dir.lock().map_err(|e| e.to_string())? = Some(lib_path);
-    
+
     Ok(version)
 }
 
 /// 设置资源目录
 #[tauri::command]
 pub fn maa_set_resource_dir(state: State<MaaState>, resource_dir: String) -> Result<(), String> {
-    *state.resource_dir.lock().map_err(|e| e.to_string())? = Some(PathBuf::from(resource_dir));
+    info!("maa_set_resource_dir called, resource_dir: {}", resource_dir);
+    *state.resource_dir.lock().map_err(|e| e.to_string())? = Some(PathBuf::from(&resource_dir));
+    info!("maa_set_resource_dir success");
     Ok(())
 }
 
 /// 获取 MaaFramework 版本
 #[tauri::command]
 pub fn maa_get_version() -> Result<String, String> {
-    get_maa_version().ok_or_else(|| "MaaFramework not initialized".to_string())
+    debug!("maa_get_version called");
+    let version = get_maa_version().ok_or_else(|| "MaaFramework not initialized".to_string())?;
+    info!("maa_get_version result: {}", version);
+    Ok(version)
 }
 
 /// 查找 ADB 设备
 #[tauri::command]
 pub fn maa_find_adb_devices() -> Result<Vec<AdbDevice>, String> {
-    println!("[MaaCommands] maa_find_adb_devices called");
-    
+    info!("maa_find_adb_devices called");
+
     let guard = MAA_LIBRARY.lock().map_err(|e| {
-        println!("[MaaCommands] Failed to lock MAA_LIBRARY: {}", e);
+        error!("Failed to lock MAA_LIBRARY: {}", e);
         e.to_string()
     })?;
-    
+
     let lib = guard.as_ref().ok_or_else(|| {
-        println!("[MaaCommands] MaaFramework not initialized");
+        error!("MaaFramework not initialized");
         "MaaFramework not initialized".to_string()
     })?;
-    
-    println!("[MaaCommands] MaaFramework library loaded");
-    
+
+    debug!("MaaFramework library loaded");
+
     unsafe {
-        println!("[MaaCommands] Creating ADB device list...");
+        debug!("Creating ADB device list...");
         let list = (lib.maa_toolkit_adb_device_list_create)();
         if list.is_null() {
-            println!("[MaaCommands] Failed to create device list (null pointer)");
+            error!("Failed to create device list (null pointer)");
             return Err("Failed to create device list".to_string());
         }
-        println!("[MaaCommands] Device list created successfully");
-        
+        debug!("Device list created successfully");
+
         // 确保清理
         struct ListGuard<'a> {
             list: *mut MaaToolkitAdbDeviceList,
@@ -293,41 +313,46 @@ pub fn maa_find_adb_devices() -> Result<Vec<AdbDevice>, String> {
         }
         impl Drop for ListGuard<'_> {
             fn drop(&mut self) {
-                println!("[MaaCommands] Destroying ADB device list...");
-                unsafe { (self.lib.maa_toolkit_adb_device_list_destroy)(self.list); }
+                log::debug!("Destroying ADB device list...");
+                unsafe {
+                    (self.lib.maa_toolkit_adb_device_list_destroy)(self.list);
+                }
             }
         }
         let _guard = ListGuard { list, lib };
-        
-        println!("[MaaCommands] Calling MaaToolkitAdbDeviceFind...");
+
+        debug!("Calling MaaToolkitAdbDeviceFind...");
         let found = (lib.maa_toolkit_adb_device_find)(list);
-        println!("[MaaCommands] MaaToolkitAdbDeviceFind returned: {}", found);
-        
+        debug!("MaaToolkitAdbDeviceFind returned: {}", found);
+
         // MaaToolkitAdbDeviceFind 只在 buffer 为 null 时返回 false
         // 即使没找到设备也会返回 true，所以不应该用返回值判断是否找到设备
         if found == 0 {
-            println!("[MaaCommands] MaaToolkitAdbDeviceFind returned false (unexpected)");
+            warn!("MaaToolkitAdbDeviceFind returned false (unexpected)");
             // 继续执行而不是直接返回，检查 list size
         }
-        
+
         let size = (lib.maa_toolkit_adb_device_list_size)(list);
-        println!("[MaaCommands] Found {} ADB device(s)", size);
-        
+        info!("Found {} ADB device(s)", size);
+
         let mut devices = Vec::with_capacity(size as usize);
-        
+
         for i in 0..size {
             let device = (lib.maa_toolkit_adb_device_list_at)(list, i);
             if device.is_null() {
-                println!("[MaaCommands] Device at index {} is null, skipping", i);
+                warn!("Device at index {} is null, skipping", i);
                 continue;
             }
-            
+
             let name = from_cstr((lib.maa_toolkit_adb_device_get_name)(device));
             let adb_path = from_cstr((lib.maa_toolkit_adb_device_get_adb_path)(device));
             let address = from_cstr((lib.maa_toolkit_adb_device_get_address)(device));
-            
-            println!("[MaaCommands] Device {}: name='{}', adb_path='{}', address='{}'", i, name, adb_path, address);
-            
+
+            debug!(
+                "Device {}: name='{}', adb_path='{}', address='{}'",
+                i, name, adb_path, address
+            );
+
             devices.push(AdbDevice {
                 name,
                 adb_path,
@@ -337,56 +362,81 @@ pub fn maa_find_adb_devices() -> Result<Vec<AdbDevice>, String> {
                 config: from_cstr((lib.maa_toolkit_adb_device_get_config)(device)),
             });
         }
-        
-        println!("[MaaCommands] Returning {} device(s)", devices.len());
+
+        info!("Returning {} device(s)", devices.len());
         Ok(devices)
     }
 }
 
 /// 查找 Win32 窗口
 #[tauri::command]
-pub fn maa_find_win32_windows(class_regex: Option<String>, window_regex: Option<String>) -> Result<Vec<Win32Window>, String> {
-    let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
-    let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+pub fn maa_find_win32_windows(
+    class_regex: Option<String>,
+    window_regex: Option<String>,
+) -> Result<Vec<Win32Window>, String> {
+    info!(
+        "maa_find_win32_windows called, class_regex: {:?}, window_regex: {:?}",
+        class_regex, window_regex
+    );
+
+    let guard = MAA_LIBRARY.lock().map_err(|e| {
+        error!("Failed to lock MAA_LIBRARY: {}", e);
+        e.to_string()
+    })?;
+    let lib = guard.as_ref().ok_or_else(|| {
+        error!("MaaFramework not initialized");
+        "MaaFramework not initialized".to_string()
+    })?;
+
     unsafe {
+        debug!("Creating desktop window list...");
         let list = (lib.maa_toolkit_desktop_window_list_create)();
         if list.is_null() {
+            error!("Failed to create window list (null pointer)");
             return Err("Failed to create window list".to_string());
         }
-        
+
         struct ListGuard<'a> {
             list: *mut MaaToolkitDesktopWindowList,
             lib: &'a MaaLibrary,
         }
         impl Drop for ListGuard<'_> {
             fn drop(&mut self) {
-                unsafe { (self.lib.maa_toolkit_desktop_window_list_destroy)(self.list); }
+                log::debug!("Destroying desktop window list...");
+                unsafe {
+                    (self.lib.maa_toolkit_desktop_window_list_destroy)(self.list);
+                }
             }
         }
         let _guard = ListGuard { list, lib };
-        
+
+        debug!("Calling MaaToolkitDesktopWindowFindAll...");
         let found = (lib.maa_toolkit_desktop_window_find_all)(list);
+        debug!("MaaToolkitDesktopWindowFindAll returned: {}", found);
+
         if found == 0 {
+            info!("No windows found");
             return Ok(Vec::new());
         }
-        
+
         let size = (lib.maa_toolkit_desktop_window_list_size)(list);
+        debug!("Found {} total window(s)", size);
+
         let mut windows = Vec::with_capacity(size as usize);
-        
+
         // 编译正则表达式
         let class_re = class_regex.as_ref().and_then(|r| regex::Regex::new(r).ok());
         let window_re = window_regex.as_ref().and_then(|r| regex::Regex::new(r).ok());
-        
+
         for i in 0..size {
             let window = (lib.maa_toolkit_desktop_window_list_at)(list, i);
             if window.is_null() {
                 continue;
             }
-            
+
             let class_name = from_cstr((lib.maa_toolkit_desktop_window_get_class_name)(window));
             let window_name = from_cstr((lib.maa_toolkit_desktop_window_get_window_name)(window));
-            
+
             // 过滤
             if let Some(re) = &class_re {
                 if !re.is_match(&class_name) {
@@ -398,16 +448,22 @@ pub fn maa_find_win32_windows(class_regex: Option<String>, window_regex: Option<
                     continue;
                 }
             }
-            
+
             let handle = (lib.maa_toolkit_desktop_window_get_handle)(window);
-            
+
+            debug!(
+                "Window {}: handle={}, class='{}', name='{}'",
+                i, handle as u64, class_name, window_name
+            );
+
             windows.push(Win32Window {
                 handle: handle as u64,
                 class_name,
                 window_name,
             });
         }
-        
+
+        info!("Returning {} filtered window(s)", windows.len());
         Ok(windows)
     }
 }
@@ -415,21 +471,36 @@ pub fn maa_find_win32_windows(class_regex: Option<String>, window_regex: Option<
 /// 创建实例
 #[tauri::command]
 pub fn maa_create_instance(state: State<MaaState>, instance_id: String) -> Result<(), String> {
+    info!("maa_create_instance called, instance_id: {}", instance_id);
+
     let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
-    
+
     if instances.contains_key(&instance_id) {
+        warn!("maa_create_instance failed: instance already exists");
         return Err("Instance already exists".to_string());
     }
-    
-    instances.insert(instance_id, InstanceRuntime::default());
+
+    instances.insert(instance_id.clone(), InstanceRuntime::default());
+    info!("maa_create_instance success, instance_id: {}", instance_id);
     Ok(())
 }
 
 /// 销毁实例
 #[tauri::command]
 pub fn maa_destroy_instance(state: State<MaaState>, instance_id: String) -> Result<(), String> {
+    info!("maa_destroy_instance called, instance_id: {}", instance_id);
+
     let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
-    instances.remove(&instance_id);
+    let removed = instances.remove(&instance_id).is_some();
+
+    if removed {
+        info!("maa_destroy_instance success, instance_id: {}", instance_id);
+    } else {
+        warn!(
+            "maa_destroy_instance: instance not found, instance_id: {}",
+            instance_id
+        );
+    }
     Ok(())
 }
 
@@ -442,25 +513,31 @@ pub fn maa_connect_controller(
     config: ControllerConfig,
     agent_path: Option<String>,
 ) -> Result<i64, String> {
-    println!("[MaaCommands] maa_connect_controller called");
-    println!("[MaaCommands] instance_id: {}", instance_id);
-    println!("[MaaCommands] config: {:?}", config);
-    println!("[MaaCommands] agent_path: {:?}", agent_path);
-    
+    info!("maa_connect_controller called");
+    info!("instance_id: {}", instance_id);
+    info!("config: {:?}", config);
+    debug!("agent_path: {:?}", agent_path);
+
     let guard = MAA_LIBRARY.lock().map_err(|e| {
-        println!("[MaaCommands] Failed to lock MAA_LIBRARY: {}", e);
+        error!("Failed to lock MAA_LIBRARY: {}", e);
         e.to_string()
     })?;
     let lib = guard.as_ref().ok_or_else(|| {
-        println!("[MaaCommands] MaaFramework not initialized");
+        error!("MaaFramework not initialized");
         "MaaFramework not initialized".to_string()
     })?;
-    
-    println!("[MaaCommands] MaaFramework library loaded, creating controller...");
-    
+
+    debug!("MaaFramework library loaded, creating controller...");
+
     let controller = unsafe {
         match &config {
-            ControllerConfig::Adb { adb_path, address, screencap_methods, input_methods, config } => {
+            ControllerConfig::Adb {
+                adb_path,
+                address,
+                screencap_methods,
+                input_methods,
+                config,
+            } => {
                 // 将字符串解析为 u64
                 let screencap_methods_u64 = screencap_methods.parse::<u64>().map_err(|e| {
                     format!("Invalid screencap_methods '{}': {}", screencap_methods, e)
@@ -468,20 +545,26 @@ pub fn maa_connect_controller(
                 let input_methods_u64 = input_methods.parse::<u64>().map_err(|e| {
                     format!("Invalid input_methods '{}': {}", input_methods, e)
                 })?;
-                
-                println!("[MaaCommands] Creating ADB controller:");
-                println!("[MaaCommands]   adb_path: {}", adb_path);
-                println!("[MaaCommands]   address: {}", address);
-                println!("[MaaCommands]   screencap_methods: {} (parsed: {})", screencap_methods, screencap_methods_u64);
-                println!("[MaaCommands]   input_methods: {} (parsed: {})", input_methods, input_methods_u64);
-                println!("[MaaCommands]   config: {}", config);
-                
+
+                info!("Creating ADB controller:");
+                info!("  adb_path: {}", adb_path);
+                info!("  address: {}", address);
+                debug!(
+                    "  screencap_methods: {} (parsed: {})",
+                    screencap_methods, screencap_methods_u64
+                );
+                debug!(
+                    "  input_methods: {} (parsed: {})",
+                    input_methods, input_methods_u64
+                );
+                debug!("  config: {}", config);
+
                 let adb_path_c = to_cstring(adb_path);
                 let address_c = to_cstring(address);
                 let config_c = to_cstring(config);
                 let agent_path_c = to_cstring(agent_path.as_deref().unwrap_or(""));
-                
-                println!("[MaaCommands] Calling MaaAdbControllerCreate...");
+
+                debug!("Calling MaaAdbControllerCreate...");
                 let ctrl = (lib.maa_adb_controller_create)(
                     adb_path_c.as_ptr(),
                     address_c.as_ptr(),
@@ -490,18 +573,25 @@ pub fn maa_connect_controller(
                     config_c.as_ptr(),
                     agent_path_c.as_ptr(),
                 );
-                println!("[MaaCommands] MaaAdbControllerCreate returned: {:?}", ctrl);
+                debug!("MaaAdbControllerCreate returned: {:?}", ctrl);
                 ctrl
             }
-            ControllerConfig::Win32 { handle, screencap_method, mouse_method, keyboard_method } => {
-                (lib.maa_win32_controller_create)(
-                    *handle as *mut std::ffi::c_void,
-                    *screencap_method,
-                    *mouse_method,
-                    *keyboard_method,
-                )
-            }
-            ControllerConfig::Gamepad { handle, gamepad_type, screencap_method } => {
+            ControllerConfig::Win32 {
+                handle,
+                screencap_method,
+                mouse_method,
+                keyboard_method,
+            } => (lib.maa_win32_controller_create)(
+                *handle as *mut std::ffi::c_void,
+                *screencap_method,
+                *mouse_method,
+                *keyboard_method,
+            ),
+            ControllerConfig::Gamepad {
+                handle,
+                gamepad_type,
+                screencap_method,
+            } => {
                 // 解析 gamepad_type，默认为 Xbox360
                 let gp_type = match gamepad_type.as_deref() {
                     Some("DualShock4") | Some("DS4") => MAA_GAMEPAD_TYPE_DUALSHOCK4,
@@ -509,7 +599,7 @@ pub fn maa_connect_controller(
                 };
                 // 截图方法，默认为 DXGI_DesktopDup
                 let screencap = screencap_method.unwrap_or(MAA_WIN32_SCREENCAP_DXGI_DESKTOPDUP);
-                
+
                 (lib.maa_gamepad_controller_create)(
                     *handle as *mut std::ffi::c_void,
                     gp_type,
@@ -522,22 +612,22 @@ pub fn maa_connect_controller(
             }
         }
     };
-    
+
     if controller.is_null() {
-        println!("[MaaCommands] Controller creation failed (null pointer)");
+        error!("Controller creation failed (null pointer)");
         return Err("Failed to create controller".to_string());
     }
-    
-    println!("[MaaCommands] Controller created successfully: {:?}", controller);
-    
+
+    debug!("Controller created successfully: {:?}", controller);
+
     // 添加回调 Sink，用于接收连接状态通知
-    println!("[MaaCommands] Adding controller sink...");
+    debug!("Adding controller sink...");
     unsafe {
         (lib.maa_controller_add_sink)(controller, get_event_callback(), std::ptr::null_mut());
     }
-    
+
     // 设置默认截图分辨率
-    println!("[MaaCommands] Setting screenshot target short side to 720...");
+    debug!("Setting screenshot target short side to 720...");
     unsafe {
         let short_side: i32 = 720;
         (lib.maa_controller_set_option)(
@@ -547,43 +637,55 @@ pub fn maa_connect_controller(
             std::mem::size_of::<i32>() as u64,
         );
     }
-    
+
     // 发起连接（不等待，通过回调通知完成）
-    println!("[MaaCommands] Calling MaaControllerPostConnection...");
+    debug!("Calling MaaControllerPostConnection...");
     let conn_id = unsafe { (lib.maa_controller_post_connection)(controller) };
-    println!("[MaaCommands] MaaControllerPostConnection returned conn_id: {}", conn_id);
-    
+    info!("MaaControllerPostConnection returned conn_id: {}", conn_id);
+
     if conn_id == MAA_INVALID_ID {
-        println!("[MaaCommands] Failed to post connection");
-        unsafe { (lib.maa_controller_destroy)(controller); }
+        error!("Failed to post connection");
+        unsafe {
+            (lib.maa_controller_destroy)(controller);
+        }
         return Err("Failed to post connection".to_string());
     }
-    
+
     // 更新实例状态
-    println!("[MaaCommands] Updating instance state...");
+    debug!("Updating instance state...");
     {
         let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
-        
+
         // 清理旧的控制器
         if let Some(old_controller) = instance.controller.take() {
-            println!("[MaaCommands] Destroying old controller...");
-            unsafe { (lib.maa_controller_destroy)(old_controller); }
+            debug!("Destroying old controller...");
+            unsafe {
+                (lib.maa_controller_destroy)(old_controller);
+            }
         }
-        
+
         instance.controller = Some(controller);
         instance.connection_status = ConnectionStatus::Connecting;
     }
-    
+
     Ok(conn_id)
 }
 
 /// 获取连接状态
 #[tauri::command]
-pub fn maa_get_connection_status(state: State<MaaState>, instance_id: String) -> Result<ConnectionStatus, String> {
+pub fn maa_get_connection_status(
+    state: State<MaaState>,
+    instance_id: String,
+) -> Result<ConnectionStatus, String> {
+    debug!("maa_get_connection_status called, instance_id: {}", instance_id);
+
     let instances = state.instances.lock().map_err(|e| e.to_string())?;
     let instance = instances.get(&instance_id).ok_or("Instance not found")?;
-    Ok(instance.connection_status.clone())
+    let status = instance.connection_status.clone();
+
+    debug!("maa_get_connection_status result: {:?}", status);
+    Ok(status)
 }
 
 /// 加载资源（异步，通过回调通知完成状态）
@@ -594,57 +696,65 @@ pub fn maa_load_resource(
     instance_id: String,
     paths: Vec<String>,
 ) -> Result<Vec<i64>, String> {
-    println!("[MaaCommands] maa_load_resource called, instance: {}, paths: {:?}", instance_id, paths);
-    
+    info!(
+        "maa_load_resource called, instance: {}, paths: {:?}",
+        instance_id, paths
+    );
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     // 创建或获取资源
     let resource = {
         let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
-        
+
         if instance.resource.is_none() {
             let res = unsafe { (lib.maa_resource_create)() };
             if res.is_null() {
                 return Err("Failed to create resource".to_string());
             }
-            
+
             // 添加回调 Sink，用于接收资源加载状态通知
-            println!("[MaaCommands] Adding resource sink...");
+            debug!("Adding resource sink...");
             unsafe {
                 (lib.maa_resource_add_sink)(res, get_event_callback(), std::ptr::null_mut());
             }
-            
+
             instance.resource = Some(res);
         }
-        
+
         instance.resource.unwrap()
     };
-    
+
     // 加载资源（不等待，通过回调通知完成）
     let mut res_ids = Vec::new();
     for path in &paths {
         let path_c = to_cstring(path);
         let res_id = unsafe { (lib.maa_resource_post_bundle)(resource, path_c.as_ptr()) };
-        println!("[MaaCommands] Posted resource bundle: {} -> id: {}", path, res_id);
-        
+        info!("Posted resource bundle: {} -> id: {}", path, res_id);
+
         if res_id == MAA_INVALID_ID {
-            println!("[MaaCommands] Failed to post resource bundle: {}", path);
+            warn!("Failed to post resource bundle: {}", path);
             continue;
         }
         res_ids.push(res_id);
     }
-    
+
     Ok(res_ids)
 }
 
 /// 检查资源是否已加载
 #[tauri::command]
 pub fn maa_is_resource_loaded(state: State<MaaState>, instance_id: String) -> Result<bool, String> {
+    debug!("maa_is_resource_loaded called, instance_id: {}", instance_id);
+
     let instances = state.instances.lock().map_err(|e| e.to_string())?;
     let instance = instances.get(&instance_id).ok_or("Instance not found")?;
-    Ok(instance.resource_loaded)
+    let loaded = instance.resource_loaded;
+
+    debug!("maa_is_resource_loaded result: {}", loaded);
+    Ok(loaded)
 }
 
 /// 运行任务（异步，通过回调通知完成状态）
@@ -656,63 +766,65 @@ pub fn maa_run_task(
     entry: String,
     pipeline_override: String,
 ) -> Result<i64, String> {
-    println!("[MaaCommands] maa_run_task called, instance: {}, entry: {}", instance_id, entry);
-    
+    info!(
+        "maa_run_task called, instance_id: {}, entry: {}, pipeline_override: {}",
+        instance_id, entry, pipeline_override
+    );
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     let (_resource, _controller, tasker) = {
         let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
-        
+
         let resource = instance.resource.ok_or("Resource not loaded")?;
         let controller = instance.controller.ok_or("Controller not connected")?;
-        
+
         // 创建或获取 tasker
         if instance.tasker.is_none() {
             let tasker = unsafe { (lib.maa_tasker_create)() };
             if tasker.is_null() {
                 return Err("Failed to create tasker".to_string());
             }
-            
+
             // 添加回调 Sink，用于接收任务状态通知
-            println!("[MaaCommands] Adding tasker sink...");
+            debug!("Adding tasker sink...");
             unsafe {
                 (lib.maa_tasker_add_sink)(tasker, get_event_callback(), std::ptr::null_mut());
             }
-            
+
             // 绑定资源和控制器
             unsafe {
                 (lib.maa_tasker_bind_resource)(tasker, resource);
                 (lib.maa_tasker_bind_controller)(tasker, controller);
             }
-            
+
             instance.tasker = Some(tasker);
         }
-        
+
         (resource, controller, instance.tasker.unwrap())
     };
-    
+
     // 检查初始化状态
     let inited = unsafe { (lib.maa_tasker_inited)(tasker) };
     if inited == 0 {
         return Err("Tasker not properly initialized".to_string());
     }
-    
+
     // 提交任务（不等待，通过回调通知完成）
     let entry_c = to_cstring(&entry);
     let override_c = to_cstring(&pipeline_override);
-    
-    let task_id = unsafe {
-        (lib.maa_tasker_post_task)(tasker, entry_c.as_ptr(), override_c.as_ptr())
-    };
-    
-    println!("[MaaCommands] Posted task: {} -> id: {}", entry, task_id);
-    
+
+    let task_id =
+        unsafe { (lib.maa_tasker_post_task)(tasker, entry_c.as_ptr(), override_c.as_ptr()) };
+
+    info!("Posted task: {} -> id: {}", entry, task_id);
+
     if task_id == MAA_INVALID_ID {
         return Err("Failed to post task".to_string());
     }
-    
+
     Ok(task_id)
 }
 
@@ -723,59 +835,81 @@ pub fn maa_get_task_status(
     instance_id: String,
     task_id: i64,
 ) -> Result<TaskStatus, String> {
+    debug!(
+        "maa_get_task_status called, instance_id: {}, task_id: {}",
+        instance_id, task_id
+    );
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     let tasker = {
         let instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get(&instance_id).ok_or("Instance not found")?;
         instance.tasker.ok_or("Tasker not created")?
     };
-    
+
     let status = unsafe { (lib.maa_tasker_status)(tasker, task_id) };
-    
-    Ok(match status {
+
+    let result = match status {
         MAA_STATUS_PENDING => TaskStatus::Pending,
         MAA_STATUS_RUNNING => TaskStatus::Running,
         MAA_STATUS_SUCCEEDED => TaskStatus::Succeeded,
         _ => TaskStatus::Failed,
-    })
+    };
+
+    debug!(
+        "maa_get_task_status result: {:?} (raw: {})",
+        result, status
+    );
+    Ok(result)
 }
 
 /// 停止任务
 #[tauri::command]
 pub fn maa_stop_task(state: State<MaaState>, instance_id: String) -> Result<(), String> {
+    info!("maa_stop_task called, instance_id: {}", instance_id);
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     let tasker = {
         let instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get(&instance_id).ok_or("Instance not found")?;
         instance.tasker.ok_or("Tasker not created")?
     };
-    
-    unsafe { (lib.maa_tasker_post_stop)(tasker) };
-    
+
+    debug!("Calling MaaTaskerPostStop...");
+    let stop_id = unsafe { (lib.maa_tasker_post_stop)(tasker) };
+    info!("MaaTaskerPostStop returned: {}", stop_id);
+
     Ok(())
 }
 
 /// 检查是否正在运行
 #[tauri::command]
 pub fn maa_is_running(state: State<MaaState>, instance_id: String) -> Result<bool, String> {
+    debug!("maa_is_running called, instance_id: {}", instance_id);
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     let tasker = {
         let instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get(&instance_id).ok_or("Instance not found")?;
         match instance.tasker {
             Some(t) => t,
-            None => return Ok(false),
+            None => {
+                debug!("maa_is_running: no tasker, returning false");
+                return Ok(false);
+            }
         }
     };
-    
+
     let running = unsafe { (lib.maa_tasker_running)(tasker) };
-    Ok(running != 0)
+    let result = running != 0;
+    debug!("maa_is_running result: {} (raw: {})", result, running);
+    Ok(result)
 }
 
 /// 发起截图请求
@@ -880,60 +1014,65 @@ pub async fn maa_start_tasks(
     agent_config: Option<AgentConfig>,
     cwd: String,
 ) -> Result<Vec<i64>, String> {
-    println!("[MaaCommands] maa_start_tasks called");
-    println!("[MaaCommands] instance_id: {}, tasks: {}, cwd: {}", instance_id, tasks.len(), cwd);
-    
+    info!("maa_start_tasks called");
+    info!(
+        "instance_id: {}, tasks: {}, cwd: {}",
+        instance_id,
+        tasks.len(),
+        cwd
+    );
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     // 获取实例资源和控制器
     let (resource, _controller, tasker) = {
         let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
         let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
-        
+
         let resource = instance.resource.ok_or("Resource not loaded")?;
         let controller = instance.controller.ok_or("Controller not connected")?;
-        
+
         // 创建或获取 tasker
         if instance.tasker.is_none() {
             let tasker = unsafe { (lib.maa_tasker_create)() };
             if tasker.is_null() {
                 return Err("Failed to create tasker".to_string());
             }
-            
+
             // 添加回调 Sink，用于接收任务状态通知
-            println!("[MaaCommands] Adding tasker sink...");
+            debug!("Adding tasker sink...");
             unsafe {
                 (lib.maa_tasker_add_sink)(tasker, get_event_callback(), std::ptr::null_mut());
             }
-            
+
             // 绑定资源和控制器
             unsafe {
                 (lib.maa_tasker_bind_resource)(tasker, resource);
                 (lib.maa_tasker_bind_controller)(tasker, controller);
             }
-            
+
             instance.tasker = Some(tasker);
         }
-        
+
         (resource, controller, instance.tasker.unwrap())
     };
-    
+
     // 启动 Agent（如果配置了）
     if let Some(agent) = &agent_config {
-        println!("[MaaCommands] Starting agent: {:?}", agent);
-        
+        info!("Starting agent: {:?}", agent);
+
         // 创建 AgentClient
         let agent_client = unsafe { (lib.maa_agent_client_create_v2)(std::ptr::null()) };
         if agent_client.is_null() {
             return Err("Failed to create agent client".to_string());
         }
-        
+
         // 绑定资源
         unsafe {
             (lib.maa_agent_client_bind_resource)(agent_client, resource);
         }
-        
+
         // 获取 socket identifier
         let socket_id = unsafe {
             let id_buffer = (lib.maa_string_buffer_create)();
@@ -941,35 +1080,42 @@ pub async fn maa_start_tasks(
                 (lib.maa_agent_client_destroy)(agent_client);
                 return Err("Failed to create string buffer".to_string());
             }
-            
+
             let success = (lib.maa_agent_client_identifier)(agent_client, id_buffer);
             if success == 0 {
                 (lib.maa_string_buffer_destroy)(id_buffer);
                 (lib.maa_agent_client_destroy)(agent_client);
                 return Err("Failed to get agent identifier".to_string());
             }
-            
+
             let id = from_cstr((lib.maa_string_buffer_get)(id_buffer));
             (lib.maa_string_buffer_destroy)(id_buffer);
             id
         };
-        
-        println!("[MaaCommands] Agent socket_id: {}", socket_id);
-        
+
+        info!("Agent socket_id: {}", socket_id);
+
         // 构建子进程参数
         let mut args = agent.child_args.clone().unwrap_or_default();
         args.push(socket_id);
-        
-        println!("[MaaCommands] Starting child process: {} {:?} in {}", agent.child_exec, args, cwd);
-        
+
+        info!(
+            "Starting child process: {} {:?} in {}",
+            agent.child_exec, args, cwd
+        );
+
         // 将相对路径转换为绝对路径（Windows 的 Command 不能正确处理 Unix 风格相对路径）
         let exec_path = std::path::Path::new(&cwd).join(&agent.child_exec);
         let exec_path = exec_path.canonicalize().unwrap_or(exec_path);
-        println!("[MaaCommands] Resolved executable path: {:?}, exists: {}", exec_path, exec_path.exists());
-        
+        debug!(
+            "Resolved executable path: {:?}, exists: {}",
+            exec_path,
+            exec_path.exists()
+        );
+
         // 启动子进程，捕获 stdout 和 stderr
         // 设置 PYTHONIOENCODING 强制 Python 以 UTF-8 编码输出，避免 Windows 系统代码页乱码
-        println!("[MaaCommands] Spawning child process...");
+        debug!("Spawning child process...");
         let spawn_result = Command::new(&exec_path)
             .args(&args)
             .current_dir(&cwd)
@@ -978,30 +1124,45 @@ pub async fn maa_start_tasks(
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn();
-        
+
         let mut child = match spawn_result {
             Ok(c) => {
-                println!("[MaaCommands] Spawn succeeded!");
+                info!("Spawn succeeded!");
                 c
             }
             Err(e) => {
-                let err_msg = format!("Failed to start agent process: {} (exec: {:?}, cwd: {})", e, exec_path, cwd);
-                println!("[MaaCommands] {}", err_msg);
+                let err_msg = format!(
+                    "Failed to start agent process: {} (exec: {:?}, cwd: {})",
+                    e, exec_path, cwd
+                );
+                error!("{}", err_msg);
                 return Err(err_msg);
             }
         };
-        
-        println!("[MaaCommands] Agent child process started, pid: {:?}", child.id());
-        
+
+        info!("Agent child process started, pid: {:?}", child.id());
+
+        // 创建 agent 日志文件（写入到 exe/logs/mxu-agent.log）
+        let agent_log_file = get_logs_dir().join("mxu-agent.log");
+        let log_file = Arc::new(Mutex::new(
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&agent_log_file)
+                .ok(),
+        ));
+        info!("Agent log file: {:?}", agent_log_file);
+
         // 在单独线程中读取 stdout（使用有损转换处理非UTF-8输出）
         if let Some(stdout) = child.stdout.take() {
+            let log_file_clone = Arc::clone(&log_file);
             thread::spawn(move || {
                 let mut reader = BufReader::new(stdout);
                 let mut buffer = Vec::new();
                 loop {
                     buffer.clear();
                     match reader.read_until(b'\n', &mut buffer) {
-                        Ok(0) => break,  // EOF
+                        Ok(0) => break, // EOF
                         Ok(_) => {
                             // 移除末尾换行符后使用有损转换
                             if buffer.ends_with(&[b'\n']) {
@@ -1011,26 +1172,35 @@ pub async fn maa_start_tasks(
                                 buffer.pop();
                             }
                             let line = String::from_utf8_lossy(&buffer);
-                            println!("[Agent stdout] {}", line);
+                            // 写入日志文件
+                            if let Ok(mut guard) = log_file_clone.lock() {
+                                if let Some(ref mut file) = *guard {
+                                    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+                                    let _ = writeln!(file, "{} [stdout] {}", timestamp, line);
+                                }
+                            }
+                            // 同时输出到控制台
+                            log::info!(target: "agent", "[stdout] {}", line);
                         }
                         Err(e) => {
-                            eprintln!("[Agent stdout error] {}", e);
+                            log::error!(target: "agent", "[stdout error] {}", e);
                             break;
                         }
                     }
                 }
             });
         }
-        
+
         // 在单独线程中读取 stderr（使用有损转换处理非UTF-8输出）
         if let Some(stderr) = child.stderr.take() {
+            let log_file_clone = Arc::clone(&log_file);
             thread::spawn(move || {
                 let mut reader = BufReader::new(stderr);
                 let mut buffer = Vec::new();
                 loop {
                     buffer.clear();
                     match reader.read_until(b'\n', &mut buffer) {
-                        Ok(0) => break,  // EOF
+                        Ok(0) => break, // EOF
                         Ok(_) => {
                             if buffer.ends_with(&[b'\n']) {
                                 buffer.pop();
@@ -1039,22 +1209,32 @@ pub async fn maa_start_tasks(
                                 buffer.pop();
                             }
                             let line = String::from_utf8_lossy(&buffer);
-                            eprintln!("[Agent stderr] {}", line);
+                            // 写入日志文件
+                            if let Ok(mut guard) = log_file_clone.lock() {
+                                if let Some(ref mut file) = *guard {
+                                    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+                                    let _ = writeln!(file, "{} [stderr] {}", timestamp, line);
+                                }
+                            }
+                            // 同时输出到控制台
+                            log::warn!(target: "agent", "[stderr] {}", line);
                         }
                         Err(e) => {
-                            eprintln!("[Agent stderr error] {}", e);
+                            log::error!(target: "agent", "[stderr error] {}", e);
                             break;
                         }
                     }
                 }
             });
         }
-        
+
         // 设置连接超时（-1 表示无限等待）
         let timeout_ms = agent.timeout.unwrap_or(-1);
-        println!("[MaaCommands] Setting agent connect timeout: {} ms", timeout_ms);
-        unsafe { (lib.maa_agent_client_set_timeout)(agent_client, timeout_ms); }
-        
+        info!("Setting agent connect timeout: {} ms", timeout_ms);
+        unsafe {
+            (lib.maa_agent_client_set_timeout)(agent_client, timeout_ms);
+        }
+
         // 等待连接
         let connected = unsafe { (lib.maa_agent_client_connect)(agent_client) };
         if connected == 0 {
@@ -1062,12 +1242,14 @@ pub async fn maa_start_tasks(
             if let Some(instance) = instances.get_mut(&instance_id) {
                 instance.agent_child = Some(child);
             }
-            unsafe { (lib.maa_agent_client_destroy)(agent_client); }
+            unsafe {
+                (lib.maa_agent_client_destroy)(agent_client);
+            }
             return Err("Failed to connect to agent".to_string());
         }
-        
-        println!("[MaaCommands] Agent connected");
-        
+
+        info!("Agent connected");
+
         // 保存 agent 状态
         {
             let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
@@ -1077,62 +1259,61 @@ pub async fn maa_start_tasks(
             }
         }
     }
-    
+
     // 检查初始化状态
     let inited = unsafe { (lib.maa_tasker_inited)(tasker) };
     if inited == 0 {
         return Err("Tasker not properly initialized".to_string());
     }
-    
+
     // 提交所有任务
     let mut task_ids = Vec::new();
     for task in &tasks {
         let entry_c = to_cstring(&task.entry);
         let override_c = to_cstring(&task.pipeline_override);
-        
-        let task_id = unsafe {
-            (lib.maa_tasker_post_task)(tasker, entry_c.as_ptr(), override_c.as_ptr())
-        };
-        
+
+        let task_id =
+            unsafe { (lib.maa_tasker_post_task)(tasker, entry_c.as_ptr(), override_c.as_ptr()) };
+
         if task_id == MAA_INVALID_ID {
-            println!("[MaaCommands] Failed to post task: {}", task.entry);
+            warn!("Failed to post task: {}", task.entry);
             continue;
         }
-        
-        println!("[MaaCommands] Posted task: {} -> id: {}", task.entry, task_id);
+
+        info!("Posted task: {} -> id: {}", task.entry, task_id);
         task_ids.push(task_id);
     }
-    
+
     Ok(task_ids)
 }
 
 /// 停止 Agent 并断开连接
 #[tauri::command]
 pub fn maa_stop_agent(state: State<MaaState>, instance_id: String) -> Result<(), String> {
-    println!("[MaaCommands] maa_stop_agent called for instance: {}", instance_id);
-    
+    info!("maa_stop_agent called for instance: {}", instance_id);
+
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
-    
+
     let mut instances = state.instances.lock().map_err(|e| e.to_string())?;
     let instance = instances.get_mut(&instance_id).ok_or("Instance not found")?;
-    
+
     // 断开并销毁 agent
     if let Some(agent) = instance.agent_client.take() {
-        println!("[MaaCommands] Disconnecting agent...");
+        info!("Disconnecting agent...");
         unsafe {
             (lib.maa_agent_client_disconnect)(agent);
             (lib.maa_agent_client_destroy)(agent);
         }
     }
-    
+
     // 终止子进程
     if let Some(mut child) = instance.agent_child.take() {
-        println!("[MaaCommands] Killing agent child process...");
+        info!("Killing agent child process...");
         let _ = child.kill();
         let _ = child.wait();
     }
-    
+
     Ok(())
 }
 
@@ -1154,8 +1335,8 @@ fn get_exe_directory() -> Result<PathBuf, String> {
 pub fn read_local_file(filename: String) -> Result<String, String> {
     let exe_dir = get_exe_directory()?;
     let file_path = exe_dir.join(&filename);
-    println!("[MaaCommands] Reading local file: {:?}", file_path);
-    
+    debug!("Reading local file: {:?}", file_path);
+
     std::fs::read_to_string(&file_path)
         .map_err(|e| format!("读取文件失败 [{}]: {}", file_path.display(), e))
 }
@@ -1163,15 +1344,15 @@ pub fn read_local_file(filename: String) -> Result<String, String> {
 /// 读取 exe 同目录下的二进制文件，返回 base64 编码
 #[tauri::command]
 pub fn read_local_file_base64(filename: String) -> Result<String, String> {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
-    
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
     let exe_dir = get_exe_directory()?;
     let file_path = exe_dir.join(&filename);
-    println!("[MaaCommands] Reading local file (base64): {:?}", file_path);
-    
+    debug!("Reading local file (base64): {:?}", file_path);
+
     let data = std::fs::read(&file_path)
         .map_err(|e| format!("读取文件失败 [{}]: {}", file_path.display(), e))?;
-    
+
     Ok(STANDARD.encode(&data))
 }
 

@@ -51,9 +51,9 @@ if (isTauri()) {
 async function writeLogToFile(line: string): Promise<void> {
   if (!logsDir) return;
   
-  // 日志文件名：mxu-YYYY-MM-DD.log
+  // 日志文件名：mxu-web-YYYY-MM-DD.log
   const today = new Date().toISOString().slice(0, 10);
-  const logFile = `${logsDir}/mxu-${today}.log`;
+  const logFile = `${logsDir}/mxu-web-${today}.log`;
   
   try {
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');

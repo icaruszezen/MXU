@@ -1,5 +1,5 @@
 //! MaaFramework FFI bindings
-//! 
+//!
 //! 通过 libloading 动态加载 MaaFramework 库，实现运行时绑定
 //! 不同平台的动态库文件：
 //! - Windows: MaaFramework.dll, MaaToolkit.dll
@@ -15,10 +15,11 @@ use std::os::raw::{c_char, c_void};
 use std::path::Path;
 use std::sync::Mutex;
 
-use once_cell::sync::Lazy;
 use libloading::Library;
-use tauri::{AppHandle, Emitter};
+use log::{debug, info, warn};
+use once_cell::sync::Lazy;
 use serde::Serialize;
+use tauri::{AppHandle, Emitter};
 
 // 类型定义 (对应 MaaDef.h)
 pub type MaaBool = u8;
@@ -269,15 +270,19 @@ impl MaaLibrary {
             extern "system" {
                 fn SetDllDirectoryW(path: *const u16) -> i32;
             }
-            let wide_path: Vec<u16> = lib_dir.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+            let wide_path: Vec<u16> = lib_dir
+                .as_os_str()
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
             let result = unsafe { SetDllDirectoryW(wide_path.as_ptr()) };
             if result == 0 {
-                println!("[MaaFFI] Warning: SetDllDirectoryW failed");
+                warn!("SetDllDirectoryW failed");
             } else {
-                println!("[MaaFFI] SetDllDirectoryW set to {:?}", lib_dir);
+                debug!("SetDllDirectoryW set to {:?}", lib_dir);
             }
         }
-        
+
         unsafe {
             // 加载库
             #[cfg(windows)]
@@ -286,35 +291,47 @@ impl MaaLibrary {
             let framework_path = lib_dir.join("libMaaFramework.dylib");
             #[cfg(target_os = "linux")]
             let framework_path = lib_dir.join("libMaaFramework.so");
-            
+
             #[cfg(windows)]
             let toolkit_path = lib_dir.join("MaaToolkit.dll");
             #[cfg(target_os = "macos")]
             let toolkit_path = lib_dir.join("libMaaToolkit.dylib");
             #[cfg(target_os = "linux")]
             let toolkit_path = lib_dir.join("libMaaToolkit.so");
-            
+
             #[cfg(windows)]
             let agent_client_path = lib_dir.join("MaaAgentClient.dll");
             #[cfg(target_os = "macos")]
             let agent_client_path = lib_dir.join("libMaaAgentClient.dylib");
             #[cfg(target_os = "linux")]
             let agent_client_path = lib_dir.join("libMaaAgentClient.so");
-            
-            println!("[MaaFFI] Loading MaaFramework from {:?}...", framework_path);
-            let framework_lib = Library::new(&framework_path)
-                .map_err(|e| format!("Failed to load MaaFramework: {} (path: {:?})", e, framework_path))?;
-            println!("[MaaFFI] MaaFramework loaded successfully");
-            
-            println!("[MaaFFI] Loading MaaToolkit from {:?}...", toolkit_path);
-            let toolkit_lib = Library::new(&toolkit_path)
-                .map_err(|e| format!("Failed to load MaaToolkit: {} (path: {:?})", e, toolkit_path))?;
-            println!("[MaaFFI] MaaToolkit loaded successfully");
-            
-            println!("[MaaFFI] Loading MaaAgentClient from {:?}...", agent_client_path);
-            let agent_client_lib = Library::new(&agent_client_path)
-                .map_err(|e| format!("Failed to load MaaAgentClient: {} (path: {:?})", e, agent_client_path))?;
-            println!("[MaaFFI] MaaAgentClient loaded successfully");
+
+            info!("Loading MaaFramework from {:?}...", framework_path);
+            let framework_lib = Library::new(&framework_path).map_err(|e| {
+                format!(
+                    "Failed to load MaaFramework: {} (path: {:?})",
+                    e, framework_path
+                )
+            })?;
+            info!("MaaFramework loaded successfully");
+
+            info!("Loading MaaToolkit from {:?}...", toolkit_path);
+            let toolkit_lib = Library::new(&toolkit_path).map_err(|e| {
+                format!(
+                    "Failed to load MaaToolkit: {} (path: {:?})",
+                    e, toolkit_path
+                )
+            })?;
+            info!("MaaToolkit loaded successfully");
+
+            info!("Loading MaaAgentClient from {:?}...", agent_client_path);
+            let agent_client_lib = Library::new(&agent_client_path).map_err(|e| {
+                format!(
+                    "Failed to load MaaAgentClient: {} (path: {:?})",
+                    e, agent_client_path
+                )
+            })?;
+            info!("MaaAgentClient loaded successfully");
             
             // 加载函数宏 - 使用 transmute 进行类型转换
             macro_rules! load_fn {
@@ -435,17 +452,19 @@ pub static MAA_LIBRARY: Lazy<Mutex<Option<MaaLibrary>>> = Lazy::new(|| Mutex::ne
 /// 初始化 MaaFramework 库
 pub fn init_maa_library(lib_dir: &Path) -> Result<(), String> {
     let lib = MaaLibrary::load(lib_dir)?;
-    
+
     // 初始化 Toolkit 配置，user_path 使用 maafw 目录的绝对路径
     let user_path_str = lib_dir.to_string_lossy();
     let user_path = to_cstring(&user_path_str);
     let default_json = to_cstring("{}");
-    println!("[MaaFFI] MaaToolkitConfigInitOption user_path: {}", user_path_str);
-    let result = unsafe {
-        (lib.maa_toolkit_config_init_option)(user_path.as_ptr(), default_json.as_ptr())
-    };
-    println!("[MaaFFI] MaaToolkitConfigInitOption result: {}", result);
-    
+    debug!(
+        "MaaToolkitConfigInitOption user_path: {}",
+        user_path_str
+    );
+    let result =
+        unsafe { (lib.maa_toolkit_config_init_option)(user_path.as_ptr(), default_json.as_ptr()) };
+    debug!("MaaToolkitConfigInitOption result: {}", result);
+
     let mut guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     *guard = Some(lib);
     Ok(())
@@ -504,9 +523,9 @@ extern "C" fn maa_event_callback(
 ) {
     let message_str = unsafe { from_cstr(message) };
     let details_str = unsafe { from_cstr(details_json) };
-    
-    println!("[MaaCallback] message: {}, details: {}", message_str, details_str);
-    
+
+    log::debug!(target: "maa_callback", "message: {}, details: {}", message_str, details_str);
+
     // 发送事件到前端
     if let Ok(guard) = APP_HANDLE.lock() {
         if let Some(handle) = guard.as_ref() {

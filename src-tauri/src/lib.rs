@@ -1,32 +1,62 @@
-mod maa_ffi;
 mod maa_commands;
+mod maa_ffi;
 
 use maa_commands::MaaState;
+use std::path::PathBuf;
+use tauri_plugin_log::{Target, TargetKind, TimezoneStrategy};
+
+/// 获取 exe 所在目录下的 logs 子目录
+fn get_logs_dir() -> PathBuf {
+    let exe_path = std::env::current_exe().unwrap_or_default();
+    let exe_dir = exe_path.parent().unwrap_or(std::path::Path::new("."));
+    exe_dir.join("logs")
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 日志目录：exe 目录/logs（与前端日志同目录）
+    let logs_dir = get_logs_dir();
+
+    // 确保日志目录存在
+    let _ = std::fs::create_dir_all(&logs_dir);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    // 输出到控制台
+                    Target::new(TargetKind::Stdout),
+                    // 输出到 exe/logs 目录（与前端日志同目录，文件名用 mxu-tauri 区分）
+                    Target::new(TargetKind::Folder {
+                        path: logs_dir,
+                        file_name: Some("mxu-tauri".into()),
+                    }),
+                ])
+                .timezone_strategy(TimezoneStrategy::UseLocal)
+                .level(log::LevelFilter::Debug)
+                .build(),
+        )
         .manage(MaaState::default())
         .setup(|app| {
             // 存储 AppHandle 供 MaaFramework 回调使用
             maa_ffi::set_app_handle(app.handle().clone());
-            
+
             // 启动时自动加载 MaaFramework DLL
             if let Ok(maafw_dir) = maa_commands::get_maafw_dir() {
                 if maafw_dir.exists() {
                     match maa_ffi::init_maa_library(&maafw_dir) {
-                        Ok(()) => println!("[MXU] MaaFramework loaded from {:?}", maafw_dir),
-                        Err(e) => println!("[MXU] Failed to load MaaFramework: {}", e),
+                        Ok(()) => log::info!("MaaFramework loaded from {:?}", maafw_dir),
+                        Err(e) => log::error!("Failed to load MaaFramework: {}", e),
                     }
                 } else {
-                    println!("[MXU] MaaFramework directory not found: {:?}", maafw_dir);
+                    log::warn!("MaaFramework directory not found: {:?}", maafw_dir);
                 }
             }
-            
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
