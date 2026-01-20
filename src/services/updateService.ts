@@ -14,6 +14,8 @@ const log = loggers.app;
 
 // 下载状态标志，防止重复检查或下载
 let isDownloading = false;
+// 下载是否被用户主动取消
+let downloadCancelled = false;
 
 /**
  * 将文件移动到统一的 cache/old 文件夹，处理重名冲突
@@ -75,14 +77,17 @@ export async function cancelDownload(): Promise<boolean> {
   
   log.info('取消下载...');
   
+  // 标记为用户主动取消，让 downloadUpdate 知道不需要再重置状态
+  downloadCancelled = true;
+  
   try {
-    // 调用 Rust 后端删除临时文件
+    // 调用 Rust 后端设置取消标志
     await invoke('cancel_download', { savePath: currentDownloadPath });
   } catch (error) {
-    log.warn('取消下载时清理临时文件失败:', error);
+    log.warn('取消下载失败:', error);
   }
   
-  // 重置状态
+  // 立即重置状态，允许新的下载开始
   isDownloading = false;
   currentDownloadPath = null;
   return true;
@@ -524,6 +529,11 @@ export interface DownloadUpdateOptions {
 // 当前下载的保存路径，用于取消时清理临时文件
 let currentDownloadPath: string | null = null;
 
+// 进度事件数据（包含 session_id 用于区分不同下载任务）
+interface DownloadProgressEventPayload extends DownloadProgress {
+  session_id: number;
+}
+
 /**
  * 下载更新包（使用 Rust 后端流式下载）
  * 
@@ -547,16 +557,36 @@ export async function downloadUpdate(options: DownloadUpdateOptions): Promise<bo
   log.info(`保存路径: ${savePath}`);
   
   isDownloading = true;
+  downloadCancelled = false;
   currentDownloadPath = savePath;
   
   // 设置进度监听器
   let unlisten: (() => void) | null = null;
+  // 当前下载的 session ID，用于过滤旧下载的进度事件
+  let currentSessionId: number | null = null;
   
   try {
+    // 先启动下载，获取 session_id
+    const downloadPromise = invoke<number>('download_file', {
+      url,
+      savePath,
+      totalSize: totalSize || null,
+    });
+    
     // 监听 Rust 后端发送的下载进度事件
     if (onProgress) {
       const { listen } = await import('@tauri-apps/api/event');
-      unlisten = await listen<DownloadProgress>('download-progress', (event) => {
+      unlisten = await listen<DownloadProgressEventPayload>('download-progress', (event) => {
+        // 只处理当前 session 的进度事件，忽略旧下载的事件
+        if (currentSessionId !== null && event.payload.session_id !== currentSessionId) {
+          return;
+        }
+        // 记录第一个收到的 session_id
+        if (currentSessionId === null) {
+          currentSessionId = event.payload.session_id;
+        }
+        // 如果已被取消，忽略进度更新
+        if (downloadCancelled) return;
         onProgress({
           downloadedSize: event.payload.downloadedSize,
           totalSize: event.payload.totalSize,
@@ -566,28 +596,30 @@ export async function downloadUpdate(options: DownloadUpdateOptions): Promise<bo
       });
     }
     
-    // 调用 Rust 后端进行流式下载
-    const result = await invoke<boolean>('download_file', {
-      url,
-      savePath,
-      totalSize: totalSize || null,
-    });
+    // 等待下载完成，返回的是 session_id
+    const sessionId = await downloadPromise;
+    currentSessionId = sessionId;
     
-    if (result) {
-      log.info('下载完成');
-    }
-    
-    return result;
+    log.info(`下载完成 (session ${sessionId})`);
+    return true;
   } catch (error) {
-    log.error('下载失败:', error);
+    // 如果是用户主动取消，不记录为错误
+    if (downloadCancelled) {
+      log.info('下载已被用户取消');
+    } else {
+      log.error('下载失败:', error);
+    }
     return false;
   } finally {
     // 清理事件监听器
     if (unlisten) {
       unlisten();
     }
-    isDownloading = false;
-    currentDownloadPath = null;
+    // 只有在未被取消时才重置状态（取消时 cancelDownload 已经重置了）
+    if (!downloadCancelled) {
+      isDownloading = false;
+      currentDownloadPath = null;
+    }
   }
 }
 
