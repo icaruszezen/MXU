@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
@@ -24,6 +24,10 @@ import { resolveI18nText } from '@/services/contentResolver';
 import type { AdbDevice, Win32Window, ControllerConfig } from '@/types/maa';
 import type { ControllerItem, ResourceItem } from '@/types/interface';
 import { parseWin32ScreencapMethod, parseWin32InputMethod } from '@/types/maa';
+
+// 检测当前操作系统
+const isWindows = navigator.platform.toLowerCase().includes('win');
+const isMacOS = navigator.platform.toLowerCase().includes('mac');
 
 export function ConnectionPanel() {
   const { t } = useTranslation();
@@ -149,8 +153,21 @@ export function ConnectionPanel() {
   // 获取当前实例 ID
   const instanceId = activeInstanceId || '';
 
-  // 获取控制器列表和当前选中的控制器
-  const controllers = projectInterface?.controller || [];
+  // 获取控制器列表并根据操作系统过滤不支持的类型
+  const allControllers = projectInterface?.controller || [];
+  const controllers = useMemo(() => {
+    return allControllers.filter(c => {
+      // 非 Windows 系统不支持 Win32 和 Gamepad
+      if (!isWindows && (c.type === 'Win32' || c.type === 'Gamepad')) {
+        return false;
+      }
+      // 非 macOS 系统不支持 PlayCover
+      if (!isMacOS && c.type === 'PlayCover') {
+        return false;
+      }
+      return true;
+    });
+  }, [allControllers]);
   const currentControllerName = selectedController[instanceId] || controllers[0]?.name;
   const currentController = controllers.find(c => c.name === currentControllerName) || controllers[0];
   const controllerType = currentController?.type;
@@ -304,6 +321,20 @@ export function ConnectionPanel() {
 
   // 判断是否需要搜索设备（PlayCover 不需要搜索）
   const needsDeviceSearch = controllerType === 'Adb' || controllerType === 'Win32' || controllerType === 'Gamepad';
+  
+  // 记录上一次的控制器名称，用于检测切换
+  const prevControllerNameRef = useRef<string | undefined>(currentControllerName);
+  
+  // 当控制器切换时自动触发设备搜索
+  useEffect(() => {
+    const prevName = prevControllerNameRef.current;
+    prevControllerNameRef.current = currentControllerName;
+    
+    // 检测是否发生了切换（排除初始化和实例切换的情况）
+    if (prevName !== undefined && prevName !== currentControllerName && needsDeviceSearch) {
+      handleSearch();
+    }
+  }, [currentControllerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 初始化 MaaFramework
   const ensureMaaInitialized = async () => {
@@ -952,6 +983,9 @@ export function ConnectionPanel() {
                   <button
                     key={controller.name}
                     onClick={async () => {
+                      // 点击当前已选中的控制器，不做任何操作
+                      if (currentControllerName === controller.name) return;
+                      
                       // 切换控制器时先断开旧连接
                       if (isConnected) {
                         await maaService.destroyInstance(instanceId).catch(() => {});
@@ -962,13 +996,13 @@ export function ConnectionPanel() {
                       setSelectedAdbDevice(null);
                       setSelectedWindow(null);
                     }}
-                    disabled={isConnecting}
+                    disabled={isConnecting || isSearching}
                     className={clsx(
                       'px-2 py-0.5 text-xs rounded-md transition-colors',
                       currentControllerName === controller.name
                         ? 'bg-accent text-white'
                         : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover',
-                      isConnecting && 'opacity-50 cursor-not-allowed'
+                      (isConnecting || isSearching) && 'opacity-50 cursor-not-allowed'
                     )}
                   >
                     {getControllerDisplayName(controller)}
