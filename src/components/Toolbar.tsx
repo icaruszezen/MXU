@@ -181,16 +181,33 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           setTaskRunStatus(runningInstanceId, selectedTaskId, 'failed');
         }
         
-        // 停止 Agent（如果有）
-        if (projectInterface?.agent) {
-          maaService.stopAgent(runningInstanceId).catch(() => {});
+        // 检查是否还有更多任务（失败的任务不阻止后续任务执行）
+        if (currentTaskIndex + 1 < pendingTaskIds.length) {
+          // 移动到下一个任务
+          advanceCurrentTaskIndex(runningInstanceId);
+          const nextIndex = currentTaskIndex + 1;
+          setInstanceCurrentTaskId(runningInstanceId, pendingTaskIds[nextIndex]);
+          
+          // 将下一个任务设为 running
+          const nextSelectedTaskId = findSelectedTaskIdByMaaTaskId(runningInstanceId, pendingTaskIds[nextIndex]);
+          if (nextSelectedTaskId) {
+            setTaskRunStatus(runningInstanceId, nextSelectedTaskId, 'running');
+          }
+        } else {
+          // 所有任务执行完毕（至少有一个失败）
+          log.info('所有任务执行完毕（有任务失败）');
+          
+          // 停止 Agent（如果有）
+          if (projectInterface?.agent) {
+            maaService.stopAgent(runningInstanceId).catch(() => {});
+          }
+          
+          setInstanceTaskStatus(runningInstanceId, 'Failed');
+          updateInstance(runningInstanceId, { isRunning: false });
+          setInstanceCurrentTaskId(runningInstanceId, null);
+          clearPendingTasks(runningInstanceId);
+          runningInstanceIdRef.current = null;
         }
-        
-        setInstanceTaskStatus(runningInstanceId, 'Failed');
-        updateInstance(runningInstanceId, { isRunning: false });
-        setInstanceCurrentTaskId(runningInstanceId, null);
-        clearPendingTasks(runningInstanceId);
-        runningInstanceIdRef.current = null;
       }
     }).then(fn => {
       unlisten = fn;
