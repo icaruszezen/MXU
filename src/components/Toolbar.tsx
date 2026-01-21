@@ -1179,7 +1179,7 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
 
         {/* 权限提示弹窗 */}
         {showPermissionModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-bg-primary rounded-xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
               {/* 标题栏 */}
               <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-bg-secondary">

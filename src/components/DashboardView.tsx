@@ -739,7 +739,7 @@ function InstanceCard({
       {/* 全屏模态框 */}
       {isFullscreen && screenshotUrl && (
         <div 
-          className="fixed inset-0 z-50 bg-white/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-8"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-8"
           onClick={toggleFullscreen}
         >
           {/* 卡片容器 */}
