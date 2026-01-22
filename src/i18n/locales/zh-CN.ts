@@ -13,6 +13,7 @@ export default {
     success: '成功',
     warning: '警告',
     info: '提示',
+    resizeOrCollapse: '拖动调整宽度，向右拖动到底可折叠',
   },
 
   // 标题栏
@@ -477,5 +478,15 @@ export default {
       '当前 MaaFramework 版本 ({{current}}) 低于最低支持版本 ({{minimum}})，部分功能可能无法正常工作。',
     suggestion: '请联系项目开发者更新 MaaFramework 版本。',
     understand: '我已了解',
+  },
+
+  // 权限提示
+  permission: {
+    title: '需要管理员权限',
+    message:
+      '当前控制器需要管理员权限才能正常操作目标窗口。请以管理员身份重启应用。',
+    hint: '重启后将自动恢复当前配置。',
+    restart: '以管理员身份重启',
+    restarting: '正在重启...',
   },
 };

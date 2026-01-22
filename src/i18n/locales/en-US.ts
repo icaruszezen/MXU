@@ -13,6 +13,7 @@ export default {
     success: 'Success',
     warning: 'Warning',
     info: 'Info',
+    resizeOrCollapse: 'Drag to resize, drag to the right edge to collapse',
   },
 
   // Title bar
@@ -478,5 +479,15 @@ export default {
       'Current MaaFramework version ({{current}}) is lower than the minimum supported version ({{minimum}}). Some features may not work properly.',
     suggestion: 'Please contact the project developer to update MaaFramework.',
     understand: 'I Understand',
+  },
+
+  // Permission prompt
+  permission: {
+    title: 'Administrator Privileges Required',
+    message:
+      'The current controller requires administrator privileges to interact with the target window. Please restart the application as administrator.',
+    hint: 'Your current configuration will be restored after restart.',
+    restart: 'Restart as Administrator',
+    restarting: 'Restarting...',
   },
 };

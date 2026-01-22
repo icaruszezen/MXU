@@ -13,6 +13,7 @@ export default {
     success: '成功',
     warning: '警告',
     info: 'お知らせ',
+    resizeOrCollapse: 'ドラッグして幅を調整、右端までドラッグで折りたたみ',
   },
 
   // タイトルバー
@@ -24,6 +25,14 @@ export default {
     renameInstance: 'インスタンス名を変更',
     instanceName: 'インスタンス名',
     dragToReorder: 'ドラッグして並べ替え',
+  },
+
+  // ウィンドウコントロール
+  windowControls: {
+    minimize: '最小化',
+    maximize: '最大化',
+    restore: '元に戻す',
+    close: '閉じる',
   },
 
   // 設定
@@ -462,5 +471,24 @@ export default {
 
     // 共通
     openFolder: 'フォルダを開く',
+  },
+
+  // バージョン警告
+  versionWarning: {
+    title: 'MaaFramework バージョンが古すぎます',
+    message:
+      '現在の MaaFramework バージョン ({{current}}) は、サポートされている最低バージョン ({{minimum}}) より低いです。一部の機能が正常に動作しない可能性があります。',
+    suggestion: 'MaaFramework のバージョンを更新するよう、プロジェクト開発者にお問い合わせください。',
+    understand: '了解しました',
+  },
+
+  // 権限プロンプト
+  permission: {
+    title: '管理者権限が必要です',
+    message:
+      '現在のコントローラーは、対象ウィンドウを操作するために管理者権限が必要です。管理者として再起動してください。',
+    hint: '再起動後、現在の設定は自動的に復元されます。',
+    restart: '管理者として再起動',
+    restarting: '再起動中...',
   },
 };

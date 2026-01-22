@@ -13,6 +13,7 @@ export default {
     success: '성공',
     warning: '경고',
     info: '알림',
+    resizeOrCollapse: '드래그하여 너비 조정, 오른쪽 끝까지 드래그하면 접기',
   },
 
   // 타이틀바
@@ -24,6 +25,14 @@ export default {
     renameInstance: '인스턴스 이름 변경',
     instanceName: '인스턴스 이름',
     dragToReorder: '드래그하여 순서 변경',
+  },
+
+  // 창 컨트롤
+  windowControls: {
+    minimize: '최소화',
+    maximize: '최대화',
+    restore: '복원',
+    close: '닫기',
   },
 
   // 설정
@@ -460,5 +469,24 @@ export default {
 
     // 공통
     openFolder: '폴더 열기',
+  },
+
+  // 버전 경고
+  versionWarning: {
+    title: 'MaaFramework 버전이 너무 낮습니다',
+    message:
+      '현재 MaaFramework 버전 ({{current}})이 지원되는 최소 버전 ({{minimum}})보다 낮습니다. 일부 기능이 제대로 작동하지 않을 수 있습니다.',
+    suggestion: 'MaaFramework 버전을 업데이트하려면 프로젝트 개발자에게 문의하세요.',
+    understand: '확인했습니다',
+  },
+
+  // 권한 프롬프트
+  permission: {
+    title: '관리자 권한이 필요합니다',
+    message:
+      '현재 컨트롤러가 대상 창을 조작하려면 관리자 권한이 필요합니다. 관리자 권한으로 재시작하세요.',
+    hint: '재시작 후 현재 설정이 자동으로 복원됩니다.',
+    restart: '관리자 권한으로 재시작',
+    restarting: '재시작 중...',
   },
 };
