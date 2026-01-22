@@ -586,15 +586,17 @@ export const useAppStore = create<AppState>()(
       const optionValues =
         task.option && pi.option ? initializeAllOptionValues(task.option, pi.option) : {};
 
-      // 判断新任务是否有选项（用于决定是否展开）
+      // 判断新任务是否有选项或描述（用于决定是否展开）
       const hasOptions = !!(task.option && task.option.length > 0);
+      const hasDescription = !!task.description;
+      const shouldExpand = hasOptions || hasDescription;
 
       const newTask: SelectedTask = {
         id: generateId(),
         taskName: task.name,
         enabled: true,
         optionValues,
-        expanded: hasOptions, // 有选项的任务自动展开
+        expanded: shouldExpand, // 有选项或描述的任务自动展开
       };
 
       set((state) => ({

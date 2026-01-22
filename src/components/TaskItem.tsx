@@ -260,6 +260,10 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
   const originalLabel = resolveI18nText(taskDef.label, langKey) || taskDef.name;
   const displayName = task.customName || originalLabel;
   const hasOptions = taskDef.option && taskDef.option.length > 0;
+  // 判断是否有描述内容（包括正在加载的情况）
+  const hasDescription = !!resolvedDescription.html || resolvedDescription.loading;
+  // 有选项或有描述时都可以展开
+  const canExpand = hasOptions || hasDescription;
 
   // 生成选项预览信息（最多显示3个）
   const optionPreviews = useMemo(() => {
@@ -397,7 +401,7 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
           disabled: isInstanceRunning,
           onClick: () => toggleTaskEnabled(instanceId, task.id),
         },
-        ...(hasOptions
+        ...(canExpand
           ? [
               {
                 id: 'expand',
@@ -455,7 +459,7 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
       t,
       task,
       instanceId,
-      hasOptions,
+      canExpand,
       getActiveInstance,
       duplicateTask,
       toggleTaskEnabled,
@@ -639,13 +643,13 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
               </div>
 
               {/* 展开/折叠点击区域（包含选项预览） */}
-              {hasOptions && (
+              {canExpand && (
                 <div
                   onClick={() => toggleTaskExpanded(instanceId, task.id)}
                   className="flex-1 flex items-center self-stretch min-h-[28px] cursor-pointer"
                   title={task.expanded ? t('taskItem.collapse') : t('taskItem.expand')}
                 >
-                  {/* 选项预览标签 - 未展开时显示 */}
+                  {/* 选项预览标签 - 未展开且有选项时显示 */}
                   {showOptionPreview && !task.expanded && optionPreviews.length > 0 && (
                     <div className="flex-1 flex items-center gap-1.5 mx-2 overflow-hidden">
                       {optionPreviews.map((preview) => (
@@ -687,12 +691,12 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
         )}
       </div>
 
-      {/* 选项面板 */}
-      {hasOptions && task.expanded && (
+      {/* 展开面板（描述和/或选项） */}
+      {canExpand && task.expanded && (
         <div className="border-t border-border bg-bg-tertiary p-3">
           {/* 任务描述 */}
-          {(resolvedDescription.html || resolvedDescription.loading) && (
-            <div className="mb-3">
+          {hasDescription && (
+            <div className={hasOptions ? 'mb-3' : ''}>
               <DescriptionContent
                 html={resolvedDescription.html}
                 loading={resolvedDescription.loading}
@@ -702,18 +706,21 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
               />
             </div>
           )}
-          <div className="space-y-3">
-            {taskDef.option?.map((optionKey) => (
-              <OptionEditor
-                key={optionKey}
-                instanceId={instanceId}
-                taskId={task.id}
-                optionKey={optionKey}
-                value={task.optionValues[optionKey]}
-                disabled={!canEditOptions}
-              />
-            ))}
-          </div>
+          {/* 选项列表 - 仅在有选项时显示 */}
+          {hasOptions && (
+            <div className="space-y-3">
+              {taskDef.option?.map((optionKey) => (
+                <OptionEditor
+                  key={optionKey}
+                  instanceId={instanceId}
+                  taskId={task.id}
+                  optionKey={optionKey}
+                  value={task.optionValues[optionKey]}
+                  disabled={!canEditOptions}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
