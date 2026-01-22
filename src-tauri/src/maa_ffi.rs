@@ -735,6 +735,17 @@ pub struct AgentOutputEvent {
     pub line: String,
 }
 
+/// 用于过滤 ANSI 转义序列的正则表达式
+static ANSI_ESCAPE_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    // 匹配 ANSI CSI 序列（颜色、光标控制等）和 OSC 序列（终端标题等）
+    regex::Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07?").unwrap()
+});
+
+/// 移除字符串中的 ANSI 转义序列
+fn strip_ansi_escapes(s: &str) -> String {
+    ANSI_ESCAPE_RE.replace_all(s, "").into_owned()
+}
+
 /// 发送 Agent 输出事件到前端
 pub fn emit_agent_output(instance_id: &str, stream: &str, line: &str) {
     if let Ok(guard) = APP_HANDLE.lock() {
@@ -742,7 +753,7 @@ pub fn emit_agent_output(instance_id: &str, stream: &str, line: &str) {
             let event = AgentOutputEvent {
                 instance_id: instance_id.to_string(),
                 stream: stream.to_string(),
-                line: line.to_string(),
+                line: strip_ansi_escapes(line),
             };
             let _ = handle.emit("maa-agent-output", event);
         }
