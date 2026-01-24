@@ -14,39 +14,6 @@ fn get_logs_dir() -> PathBuf {
     exe_dir.join("debug")
 }
 
-/// 递归清理目录内容，逐个删除文件和空目录，返回 (成功数, 失败数)
-fn cleanup_dir_contents(dir: &std::path::Path) -> (usize, usize) {
-    let mut deleted = 0;
-    let mut failed = 0;
-
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                // 递归清理子目录
-                let (d, f) = cleanup_dir_contents(&path);
-                deleted += d;
-                failed += f;
-                // 尝试删除空目录
-                if std::fs::remove_dir(&path).is_ok() {
-                    deleted += 1;
-                }
-            } else {
-                // 删除文件
-                match std::fs::remove_file(&path) {
-                    Ok(()) => deleted += 1,
-                    Err(_) => failed += 1,
-                }
-            }
-        }
-    }
-
-    // 尝试删除根目录本身
-    let _ = std::fs::remove_dir(dir);
-
-    (deleted, failed)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // 日志目录：exe 目录/debug/logs（与前端日志同目录）
@@ -98,7 +65,7 @@ pub fn run() {
                 let old_dir = std::path::Path::new(&exe_dir).join("cache").join("old");
                 if old_dir.exists() {
                     std::thread::spawn(move || {
-                        let (deleted, failed) = cleanup_dir_contents(&old_dir);
+                        let (deleted, failed) = maa_commands::cleanup_dir_contents(&old_dir);
                         if deleted > 0 || failed > 0 {
                             if failed == 0 {
                                 log::info!("Cleaned up cache/old: {} items deleted", deleted);
@@ -166,6 +133,8 @@ pub fn run() {
             maa_commands::apply_incremental_update,
             maa_commands::apply_full_update,
             maa_commands::cleanup_extract_dir,
+            maa_commands::fallback_update,
+            maa_commands::move_file_to_old,
             // 下载命令
             maa_commands::download_file,
             maa_commands::cancel_download,

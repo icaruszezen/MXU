@@ -365,6 +365,7 @@ export default {
       done: '업데이트 완료',
       incremental: '증분 업데이트',
       full: '전체 업데이트',
+      fallback: '대체 업데이트 수행 중...',
     },
     restartRequired: '업데이트가 설치되었습니다. 변경 사항을 적용하려면 재시작하세요',
     restartNow: '지금 재시작',

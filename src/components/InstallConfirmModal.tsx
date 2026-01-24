@@ -15,6 +15,7 @@ import {
   restartApp,
   saveUpdateCompleteInfo,
   clearPendingUpdateInfo,
+  FallbackUpdateError,
 } from '@/services/updateService';
 import { ReleaseNotes, DownloadProgressBar } from './UpdateInfoCard';
 import { loggers } from '@/utils/logger';
@@ -48,7 +49,7 @@ export function InstallConfirmModal() {
 
   // 开始安装
   const handleInstall = useCallback(async () => {
-    if (!downloadSavePath || !basePath) return;
+    if (!downloadSavePath || !basePath || !updateInfo) return;
 
     setInstallStatus('installing');
     setInstallError(null);
@@ -58,6 +59,7 @@ export function InstallConfirmModal() {
       const success = await installUpdate({
         zipPath: downloadSavePath,
         targetDir: basePath,
+        newVersion: updateInfo.versionName,
         onProgress: (stage, detail) => {
           const stageText = t(`mirrorChyan.installStages.${stage}`, stage);
           if (detail) {
@@ -78,9 +80,14 @@ export function InstallConfirmModal() {
     } catch (error) {
       loggers.ui.error('安装失败:', error);
       setInstallStatus('failed');
-      setInstallError(error instanceof Error ? error.message : String(error));
+      // 兜底更新成功时显示特殊提示
+      if (error instanceof FallbackUpdateError) {
+        setInstallError(error.message);
+      } else {
+        setInstallError(error instanceof Error ? error.message : String(error));
+      }
     }
-  }, [downloadSavePath, basePath, setInstallStatus, setInstallError, t]);
+  }, [downloadSavePath, basePath, updateInfo, setInstallStatus, setInstallError, t]);
 
   // 重启应用（直接重启，不再确认）
   const handleRestart = useCallback(async () => {
@@ -137,7 +144,7 @@ export function InstallConfirmModal() {
       autoInstallTriggered.current = true;
       // 实际执行安装逻辑
       (async () => {
-        if (!downloadSavePath || !basePath) {
+        if (!downloadSavePath || !basePath || !updateInfo) {
           setInstallStatus('failed');
           setInstallError('下载路径无效');
           return;
@@ -150,6 +157,7 @@ export function InstallConfirmModal() {
           const success = await installUpdate({
             zipPath: downloadSavePath,
             targetDir: basePath,
+            newVersion: updateInfo.versionName,
             onProgress: (stage, detail) => {
               const stageText = t(`mirrorChyan.installStages.${stage}`, stage);
               if (detail) {
@@ -170,7 +178,12 @@ export function InstallConfirmModal() {
         } catch (error) {
           loggers.ui.error('安装失败:', error);
           setInstallStatus('failed');
-          setInstallError(error instanceof Error ? error.message : String(error));
+          // 兜底更新成功时显示特殊提示
+          if (error instanceof FallbackUpdateError) {
+            setInstallError(error.message);
+          } else {
+            setInstallError(error instanceof Error ? error.message : String(error));
+          }
         }
       })();
     }
@@ -185,6 +198,7 @@ export function InstallConfirmModal() {
     installStatus,
     downloadSavePath,
     basePath,
+    updateInfo,
     setInstallStatus,
     setInstallError,
     t,

@@ -371,6 +371,7 @@ export default {
       done: 'アップデート完了',
       incremental: '差分アップデート',
       full: 'フルアップデート',
+      fallback: 'フォールバック更新を実行中...',
     },
     restartRequired: 'アップデートがインストールされました。変更を適用するには再起動してください',
     restartNow: '今すぐ再起動',

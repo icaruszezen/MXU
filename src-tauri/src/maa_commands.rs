@@ -2011,7 +2011,48 @@ pub struct ChangesJson {
     pub modified: Vec<String>,
 }
 
+/// 递归清理目录内容，逐个删除文件和空目录，返回 (成功数, 失败数)
+pub(crate) fn cleanup_dir_contents(dir: &std::path::Path) -> (usize, usize) {
+    let mut deleted = 0;
+    let mut failed = 0;
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                // 递归清理子目录
+                let (d, f) = cleanup_dir_contents(&path);
+                deleted += d;
+                failed += f;
+                // 尝试删除空目录
+                if std::fs::remove_dir(&path).is_ok() {
+                    deleted += 1;
+                }
+            } else {
+                // 删除文件
+                match std::fs::remove_file(&path) {
+                    Ok(()) => deleted += 1,
+                    Err(_) => failed += 1,
+                }
+            }
+        }
+    }
+
+    // 尝试删除根目录本身
+    let _ = std::fs::remove_dir(dir);
+
+    (deleted, failed)
+}
+
 /// 将文件或目录移动到程序目录下的 cache/old 文件夹，处理重名冲突
+/// 供前端调用，统一文件移动逻辑
+#[tauri::command]
+pub fn move_file_to_old(file_path: String) -> Result<(), String> {
+    let path = std::path::Path::new(&file_path);
+    move_to_old_folder(path)
+}
+
+/// 将文件或目录移动到程序目录下的 cache/old 文件夹，处理重名冲突（内部函数）
 fn move_to_old_folder(source: &std::path::Path) -> Result<(), String> {
     if !source.exists() {
         return Ok(());
@@ -2020,6 +2061,23 @@ fn move_to_old_folder(source: &std::path::Path) -> Result<(), String> {
     // 统一移动到 exe_dir/cache/old
     let exe_dir = get_exe_dir()?;
     let old_dir = std::path::Path::new(&exe_dir).join("cache").join("old");
+
+    // 在移动前先尝试清理 old 目录，避免同名文件冲突
+    if old_dir.exists() {
+        // 1. 尝试删除整个目录
+        if std::fs::remove_dir_all(&old_dir).is_err() {
+            // 2. 如果失败，遍历删除里面每个文件/子目录
+            let (deleted, failed) = cleanup_dir_contents(&old_dir);
+            if deleted > 0 || failed > 0 {
+                info!(
+                    "Cleanup cache/old before move: {} deleted, {} failed",
+                    deleted, failed
+                );
+            }
+        }
+    }
+
+    // 确保目录存在（刚删掉的话需要重新创建）
     std::fs::create_dir_all(&old_dir)
         .map_err(|e| format!("无法创建 old 目录 [{}]: {}", old_dir.display(), e))?;
 
@@ -2029,7 +2087,7 @@ fn move_to_old_folder(source: &std::path::Path) -> Result<(), String> {
 
     let mut dest = old_dir.join(file_name);
 
-    // 如果目标已存在，添加 .bak01, .bak02 等后缀
+    // 如果目标仍然存在（清理没删掉），添加 .bak001 等后缀
     if dest.exists() {
         let base_name = file_name.to_string_lossy();
         for i in 1..=999 {
@@ -2057,6 +2115,7 @@ fn move_to_old_folder(source: &std::path::Path) -> Result<(), String> {
 }
 
 /// 应用增量更新：将 deleted 中的文件移动到 old 文件夹，然后复制新文件
+/// 即使移动旧文件失败，也会继续复制新文件，确保程序可用
 #[tauri::command]
 pub fn apply_incremental_update(
     extract_dir: String,
@@ -2068,23 +2127,35 @@ pub fn apply_incremental_update(
     info!("deleted_files: {:?}", deleted_files);
 
     let target_path = std::path::Path::new(&target_dir);
+    let mut move_errors: Vec<String> = Vec::new();
 
-    // 1. 将 deleted 中列出的文件移动到 old 文件夹
+    // 1. 尝试将 deleted 中列出的文件移动到 old 文件夹（失败不阻断）
     for file in &deleted_files {
         let file_path = target_path.join(file);
         if file_path.exists() {
-            move_to_old_folder(&file_path)?;
+            if let Err(e) = move_to_old_folder(&file_path) {
+                warn!("移动旧文件失败（将继续更新）: {}", e);
+                move_errors.push(e);
+            }
         }
     }
 
-    // 2. 复制新包内容到目标目录（覆盖）
+    // 2. 复制新包内容到目标目录（覆盖）- 这一步必须执行
     copy_dir_contents(&extract_dir, &target_dir, None)?;
 
-    info!("apply_incremental_update success");
+    if !move_errors.is_empty() {
+        info!(
+            "apply_incremental_update completed with {} move warnings",
+            move_errors.len()
+        );
+    } else {
+        info!("apply_incremental_update success");
+    }
     Ok(())
 }
 
 /// 应用全量更新：将与新包根目录同名的文件夹/文件移动到 old 文件夹，然后复制新文件
+/// 即使移动旧文件失败，也会继续复制新文件，确保程序可用
 #[tauri::command]
 pub fn apply_full_update(extract_dir: String, target_dir: String) -> Result<(), String> {
     info!("apply_full_update called");
@@ -2092,6 +2163,7 @@ pub fn apply_full_update(extract_dir: String, target_dir: String) -> Result<(), 
 
     let extract_path = std::path::Path::new(&extract_dir);
     let target_path = std::path::Path::new(&target_dir);
+    let mut move_errors: Vec<String> = Vec::new();
 
     // 1. 获取解压目录中的根级条目
     let entries: Vec<_> = std::fs::read_dir(extract_path)
@@ -2099,7 +2171,7 @@ pub fn apply_full_update(extract_dir: String, target_dir: String) -> Result<(), 
         .filter_map(|e| e.ok())
         .collect();
 
-    // 2. 将目标目录中与新包同名的文件/文件夹移动到 old 文件夹
+    // 2. 尝试将目标目录中与新包同名的文件/文件夹移动到 old 文件夹（失败不阻断）
     for entry in &entries {
         let name = entry.file_name();
         let target_item = target_path.join(&name);
@@ -2110,22 +2182,39 @@ pub fn apply_full_update(extract_dir: String, target_dir: String) -> Result<(), 
         }
 
         if target_item.exists() {
-            move_to_old_folder(&target_item)?;
+            if let Err(e) = move_to_old_folder(&target_item) {
+                warn!("移动旧文件失败（将继续更新）: {}", e);
+                move_errors.push(e);
+            }
         }
     }
 
-    // 3. 复制新包内容到目标目录
+    // 3. 复制新包内容到目标目录 - 这一步必须执行
     copy_dir_contents(&extract_dir, &target_dir, Some(&["changes.json"]))?;
 
-    info!("apply_full_update success");
+    if !move_errors.is_empty() {
+        info!(
+            "apply_full_update completed with {} move warnings",
+            move_errors.len()
+        );
+    } else {
+        info!("apply_full_update success");
+    }
     Ok(())
 }
 
-/// 复制单个文件，先将目标文件移动到 old 目录再复制
+/// 复制单个文件，先尝试将目标文件移动到 old 目录再复制
+/// 如果移动失败，直接尝试覆盖（确保新文件能被复制）
 fn copy_file_with_move_old(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
-    // 如果目标文件存在，先移动到 old 目录
+    // 如果目标文件存在，先尝试移动到 old 目录
     if dst.exists() {
-        move_to_old_folder(dst)?;
+        if let Err(e) = move_to_old_folder(dst) {
+            warn!("移动旧文件到 old 目录失败，将直接覆盖: {}", e);
+            // 移动失败时，尝试直接删除旧文件以便覆盖
+            if let Err(del_err) = std::fs::remove_file(dst) {
+                warn!("删除旧文件也失败: {}，尝试直接覆盖", del_err);
+            }
+        }
     }
 
     // 复制新文件
@@ -2209,6 +2298,66 @@ pub fn cleanup_extract_dir(extract_dir: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// 兜底更新：当正常更新失败时，将新文件解压到 v版本号 文件夹
+/// 并复制 config 文件夹，让用户可以临时使用新版本
+#[tauri::command]
+pub fn fallback_update(
+    extract_dir: String,
+    target_dir: String,
+    new_version: String,
+) -> Result<String, String> {
+    info!(
+        "fallback_update called: extract_dir={}, target_dir={}, new_version={}",
+        extract_dir, target_dir, new_version
+    );
+
+    let target_path = std::path::Path::new(&target_dir);
+
+    // 创建 v版本号 文件夹（如 v1.2.3）
+    let version_folder_name = format!("v{}", new_version.trim_start_matches('v'));
+    let fallback_dir = target_path.join(&version_folder_name);
+
+    // 如果已存在同名文件夹，加后缀
+    let mut final_fallback_dir = fallback_dir.clone();
+    let mut suffix = 0;
+    while final_fallback_dir.exists() {
+        suffix += 1;
+        final_fallback_dir = target_path.join(format!("{}-{}", version_folder_name, suffix));
+    }
+
+    info!("创建兜底目录: {}", final_fallback_dir.display());
+
+    // 创建兜底目录
+    std::fs::create_dir_all(&final_fallback_dir)
+        .map_err(|e| format!("无法创建兜底目录: {}", e))?;
+
+    // 复制解压的新文件到兜底目录
+    copy_dir_contents(
+        &extract_dir,
+        final_fallback_dir.to_str().unwrap_or(""),
+        Some(&["changes.json"]),
+    )?;
+
+    // 复制 config 文件夹（如果存在）
+    let config_src = target_path.join("config");
+    if config_src.exists() {
+        let config_dst = final_fallback_dir.join("config");
+        if let Err(e) = copy_dir_recursive(&config_src, &config_dst) {
+            warn!("复制 config 文件夹失败: {}", e);
+        } else {
+            info!("已复制 config 文件夹到兜底目录");
+        }
+    }
+
+    let result_path = final_fallback_dir
+        .to_str()
+        .unwrap_or("")
+        .to_string();
+    info!("fallback_update success: {}", result_path);
+
+    Ok(result_path)
 }
 
 // ============================================================================

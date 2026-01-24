@@ -370,6 +370,7 @@ export default {
       done: 'Update complete',
       incremental: 'Incremental update',
       full: 'Full update',
+      fallback: 'Performing fallback update...',
     },
     restartRequired: 'Update installed. Please restart to apply changes.',
     restartNow: 'Restart Now',

@@ -368,6 +368,7 @@ export default {
       done: '更新完成',
       incremental: '增量更新',
       full: '全量更新',
+      fallback: '正在执行兜底更新...',
     },
     restartRequired: '更新已安装，请重启应用以生效',
     restartNow: '立即重启',

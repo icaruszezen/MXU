@@ -6,8 +6,8 @@ import type { UpdateInfo, DownloadProgress } from '@/stores/appStore';
 import { loggers } from '@/utils/logger';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { mkdir, remove, rename, exists } from '@tauri-apps/plugin-fs';
-import { join, dirname, basename } from '@tauri-apps/api/path';
+import { exists } from '@tauri-apps/plugin-fs';
+import { join, dirname } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 import * as semver from 'semver';
 
@@ -19,44 +19,14 @@ let isDownloading = false;
 let downloadCancelled = false;
 
 /**
- * 将文件移动到统一的 cache/old 文件夹，处理重名冲突
- * @param filePath 要移动的文件路径
+ * 将文件移动到 cache/old 文件夹（调用 Rust 端统一实现）
  */
 async function moveToOldFolder(filePath: string): Promise<void> {
   try {
-    // 检查文件是否存在
-    if (!(await exists(filePath))) {
-      return;
-    }
-
-    // 统一移动到 exe_dir/cache/old
-    const exeDir = await invoke<string>('get_exe_dir');
-    const oldDir = await join(exeDir, 'cache', 'old');
-    const fileName = await basename(filePath);
-
-    // 确保 old 目录存在
-    await mkdir(oldDir, { recursive: true }).catch(() => {});
-
-    let destPath = await join(oldDir, fileName);
-
-    // 如果目标已存在，添加 .bak001, .bak002 等后缀
-    if (await exists(destPath)) {
-      for (let i = 1; i <= 999; i++) {
-        const bakSuffix = `.bak${i.toString().padStart(3, '0')}`;
-        destPath = await join(oldDir, `${fileName}${bakSuffix}`);
-        if (!(await exists(destPath))) {
-          break;
-        }
-      }
-    }
-
-    // 执行移动
-    await rename(filePath, destPath);
-    log.info(`已移动到 cache/old: ${filePath} -> ${destPath}`);
+    await invoke('move_file_to_old', { filePath });
+    log.info(`已移动到 cache/old: ${filePath}`);
   } catch (error) {
     log.warn(`移动文件到 cache/old 失败: ${filePath}`, error);
-    // 如果移动失败，尝试删除（兜底）
-    await remove(filePath).catch(() => {});
   }
 }
 
@@ -732,6 +702,7 @@ interface ChangesJson {
 export interface InstallUpdateOptions {
   zipPath: string; // 下载的更新包路径
   targetDir: string; // 目标安装目录
+  newVersion: string; // 新版本号（用于兜底时创建文件夹）
   onProgress?: (stage: string, detail?: string) => void;
 }
 
@@ -742,9 +713,10 @@ export interface InstallUpdateOptions {
  * 3. 增量包：删除 deleted 文件，复制覆盖
  * 4. 全量包：删除同名文件夹，复制覆盖
  * 5. 清理临时文件
+ * 6. 如果失败，尝试兜底：创建 v版本号 文件夹
  */
 export async function installUpdate(options: InstallUpdateOptions): Promise<boolean> {
-  const { zipPath, targetDir, onProgress } = options;
+  const { zipPath, targetDir, newVersion, onProgress } = options;
 
   log.info(`开始安装更新: ${zipPath} -> ${targetDir}`);
 
@@ -808,10 +780,55 @@ export async function installUpdate(options: InstallUpdateOptions): Promise<bool
   } catch (error) {
     log.error('更新安装失败:', error);
 
-    // 尝试清理临时目录
-    await invoke('cleanup_extract_dir', { extractDir }).catch(() => {});
+    // 兜底逻辑：尝试将新文件解压到 v版本号 文件夹
+    try {
+      log.info('尝试兜底更新...');
+      onProgress?.('fallback', newVersion);
 
-    throw error;
+      const fallbackDir = await invoke<string>('fallback_update', {
+        extractDir,
+        targetDir,
+        newVersion,
+      });
+
+      log.info(`兜底更新成功，新文件已解压到: ${fallbackDir}`);
+
+      // 清理临时解压目录
+      await invoke('cleanup_extract_dir', { extractDir }).catch(() => {});
+      // 清理下载的 zip 文件
+      await moveToOldFolder(zipPath);
+
+      // 抛出特殊错误，告知用户可以使用兜底文件夹
+      throw new FallbackUpdateError(
+        `更新失败，但已将新版本文件解压到 ${fallbackDir}，您可以临时使用该文件夹中的程序`,
+        fallbackDir,
+      );
+    } catch (fallbackError) {
+      // 如果是兜底错误，直接抛出
+      if (fallbackError instanceof FallbackUpdateError) {
+        throw fallbackError;
+      }
+
+      log.error('兜底更新也失败:', fallbackError);
+
+      // 尝试清理临时目录
+      await invoke('cleanup_extract_dir', { extractDir }).catch(() => {});
+
+      throw error; // 抛出原始错误
+    }
+  }
+}
+
+/**
+ * 兜底更新错误，包含兜底文件夹路径
+ */
+export class FallbackUpdateError extends Error {
+  public readonly fallbackDir: string;
+
+  constructor(message: string, fallbackDir: string) {
+    super(message);
+    this.name = 'FallbackUpdateError';
+    this.fallbackDir = fallbackDir;
   }
 }
 
