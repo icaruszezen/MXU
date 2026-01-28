@@ -116,3 +116,16 @@ pnpm tauri build
 ## 📄 License
 
 [GNU Affero General Public License v3.0](LICENSE)
+
+## 鸣谢
+
+感谢以下开发者对 MXU 作出的贡献：
+
+[![贡献者](https://contrib.rocks/image?repo=MistEO/MXU&max=1000)](https://github.com/MistEO/MXU/graphs/contributors)
+
+## 赞助
+
+<!-- markdownlint-disable MD045 -->
+<a href="https://afdian.com/a/misteo">
+  <img width="200" src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png">
+</a>
