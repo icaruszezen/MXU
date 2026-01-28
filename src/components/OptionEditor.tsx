@@ -542,10 +542,7 @@ function OptionSelectDropdown({
       >
         <span className="truncate">{selectedOption?.label}</span>
         <ChevronDown
-          className={clsx(
-            'w-4 h-4 text-text-secondary transition-transform',
-            open && 'rotate-180',
-          )}
+          className={clsx('w-4 h-4 text-text-secondary transition-transform', open && 'rotate-180')}
         />
       </button>
 

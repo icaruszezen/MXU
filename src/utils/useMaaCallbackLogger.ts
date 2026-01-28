@@ -62,7 +62,7 @@ async function resolveFocusContent(
         setTimeout(() => reject(new Error('获取截图超时')), 5000);
       });
       const imagePromise = maaService.getCachedImage(instanceId);
-      
+
       const imageDataUrl = await Promise.race([imagePromise, timeoutPromise]);
       if (imageDataUrl) {
         // 直接替换为 data URL，用户可自行组装到 Markdown/HTML 中
@@ -247,7 +247,7 @@ function handleCallback(
   const focus = details.focus as Record<string, string> | undefined;
   if (focus && focus[message]) {
     const focusTemplate = focus[message];
-    
+
     // 如果包含 {image} 占位符，先快速显示不含图片的版本，避免阻塞
     const hasImagePlaceholder = focusTemplate.includes('{image}');
     if (hasImagePlaceholder) {
@@ -258,7 +258,7 @@ function handleCallback(
       );
       addLog(instanceId, { type: 'focus', message: tempMessage });
     }
-    
+
     // 异步解析完整内容（不阻塞回调函数）
     // 重要：不使用 await，让它在后台执行
     resolveFocusContent(focusTemplate, details, instanceId)
@@ -279,7 +279,7 @@ function handleCallback(
           addLog(instanceId, { type: 'focus', message: focusTemplate });
         }
       });
-    
+
     return;
   }
 

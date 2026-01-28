@@ -29,4 +29,3 @@ export function normalizeHex(input: string): string | null {
   if (/^#[0-9a-f]{6}$/.test(v)) return v;
   return null;
 }
-

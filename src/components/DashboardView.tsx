@@ -882,11 +882,7 @@ export function DashboardView({ onClose }: DashboardViewProps) {
                 {
                   transform: `scale(${zoom})`,
                   transformOrigin:
-                    align === 'left'
-                      ? 'top left'
-                      : align === 'right'
-                        ? 'top right'
-                        : 'top center',
+                    align === 'left' ? 'top left' : align === 'right' ? 'top right' : 'top center',
                 } as CSSProperties
               }
             >
@@ -923,9 +919,7 @@ export function DashboardView({ onClose }: DashboardViewProps) {
               onClick={() => setAlign('left')}
               className={clsx(
                 'p-1.5 rounded-md text-xs flex items-center justify-center',
-                align === 'left'
-                  ? 'bg-accent text-white'
-                  : 'text-text-secondary hover:bg-bg-hover',
+                align === 'left' ? 'bg-accent text-white' : 'text-text-secondary hover:bg-bg-hover',
               )}
               title={t('dashboard.alignLeft')}
             >
@@ -997,4 +991,3 @@ export function DashboardView({ onClose }: DashboardViewProps) {
     </div>
   );
 }
-

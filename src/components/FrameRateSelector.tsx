@@ -202,10 +202,7 @@ function FrameRateDropdown({ value, onChange }: FrameRateDropdownProps) {
       >
         <span className="truncate">{t(selectedOption.labelKey)}</span>
         <ChevronDown
-          className={clsx(
-            'w-4 h-4 text-text-secondary transition-transform',
-            open && 'rotate-180',
-          )}
+          className={clsx('w-4 h-4 text-text-secondary transition-transform', open && 'rotate-180')}
         />
       </button>
 

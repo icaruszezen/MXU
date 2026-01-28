@@ -1190,7 +1190,11 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                   <Palette className="w-5 h-5 text-accent" />
                   <span className="font-medium text-text-primary">{t('settings.accentColor')}</span>
                 </div>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAccentDragEnd}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleAccentDragEnd}
+                >
                   <SortableContext items={customAccentNames} strategy={rectSortingStrategy}>
                     <div className="grid grid-cols-3 gap-2">
                       {accentColors.map((accent) => {
@@ -1810,8 +1814,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                   <div className="flex items-center gap-3">
                     <Network className="w-5 h-5 text-accent" />
                     <div>
-                      <span className="font-medium text-text-primary">{t('debug.tcpCompatMode')}</span>
-                      <p className="text-xs text-text-muted mt-0.5">{t('debug.tcpCompatModeHint')}</p>
+                      <span className="font-medium text-text-primary">
+                        {t('debug.tcpCompatMode')}
+                      </span>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        {t('debug.tcpCompatModeHint')}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -1968,7 +1976,9 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             ref={accentModalRef}
             role="dialog"
             aria-modal="true"
-            aria-label={editingAccentId ? t('settings.editCustomAccent') : t('settings.addCustomAccent')}
+            aria-label={
+              editingAccentId ? t('settings.editCustomAccent') : t('settings.addCustomAccent')
+            }
             className="w-full max-w-lg max-h-[85vh] bg-bg-secondary rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col"
             onMouseDown={(event) => event.stopPropagation()}
           >

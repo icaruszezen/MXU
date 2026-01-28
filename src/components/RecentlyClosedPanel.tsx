@@ -84,7 +84,9 @@ function formatTasksSummary(
   const taskDef = projectInterface?.task.find((task) => task.name === firstTask.taskName);
   const firstTaskLabel =
     firstTask.customName ||
-    (taskDef ? resolveI18nText(taskDef.label, langKey) || taskDef.name || firstTask.taskName : firstTask.taskName);
+    (taskDef
+      ? resolveI18nText(taskDef.label, langKey) || taskDef.name || firstTask.taskName
+      : firstTask.taskName);
 
   if (taskCount === 1) {
     return firstTaskLabel;
@@ -258,7 +260,12 @@ export function RecentlyClosedPanel({ onClose, anchorRef }: RecentlyClosedPanelP
                     >
                       <Gamepad2 className="w-3 h-3" />
                       <span className="max-w-[80px] truncate">
-                        {getControllerLabel(item.controllerName, projectInterface, langKey, resolveI18nText)}
+                        {getControllerLabel(
+                          item.controllerName,
+                          projectInterface,
+                          langKey,
+                          resolveI18nText,
+                        )}
                       </span>
                     </span>
                   )}
@@ -269,7 +276,12 @@ export function RecentlyClosedPanel({ onClose, anchorRef }: RecentlyClosedPanelP
                     <span className="flex items-center gap-1 shrink-0" title={t('resource.title')}>
                       <Package className="w-3 h-3" />
                       <span className="max-w-[80px] truncate">
-                        {getResourceLabel(item.resourceName, projectInterface, langKey, resolveI18nText)}
+                        {getResourceLabel(
+                          item.resourceName,
+                          projectInterface,
+                          langKey,
+                          resolveI18nText,
+                        )}
                       </span>
                     </span>
                   )}
@@ -279,7 +291,13 @@ export function RecentlyClosedPanel({ onClose, anchorRef }: RecentlyClosedPanelP
                   {item.tasks.length > 0 && (
                     <span
                       className="flex items-center gap-1 truncate"
-                      title={formatTasksSummary(item, t, projectInterface, langKey, resolveI18nText)}
+                      title={formatTasksSummary(
+                        item,
+                        t,
+                        projectInterface,
+                        langKey,
+                        resolveI18nText,
+                      )}
                     >
                       <ListChecks className="w-3 h-3 shrink-0" />
                       <span className="truncate">

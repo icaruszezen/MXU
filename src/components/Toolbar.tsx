@@ -716,7 +716,13 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
         }
 
         // 启动任务
-        const taskIds = await maaService.startTasks(targetId, taskConfigs, agentConfig, basePath, tcpCompatMode);
+        const taskIds = await maaService.startTasks(
+          targetId,
+          taskConfigs,
+          agentConfig,
+          basePath,
+          tcpCompatMode,
+        );
 
         log.info(`实例 ${targetInstance.name}: 任务已提交, task_ids:`, taskIds);
 

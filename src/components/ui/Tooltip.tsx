@@ -79,11 +79,7 @@ export function Tooltip({
           )}
         >
           {content}
-          <TooltipPrimitive.Arrow
-            className="fill-bg-tertiary"
-            width={10}
-            height={5}
-          />
+          <TooltipPrimitive.Arrow className="fill-bg-tertiary" width={10} height={5} />
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>

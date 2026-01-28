@@ -587,7 +587,10 @@ impl MaaLibrary {
 
                 // AgentClient
                 maa_agent_client_create_v2: load_fn!(agent_client_lib, "MaaAgentClientCreateV2"),
-                maa_agent_client_create_tcp: load_fn_optional!(agent_client_lib, "MaaAgentClientCreateTcp"),
+                maa_agent_client_create_tcp: load_fn_optional!(
+                    agent_client_lib,
+                    "MaaAgentClientCreateTcp"
+                ),
                 maa_agent_client_destroy: load_fn!(agent_client_lib, "MaaAgentClientDestroy"),
                 maa_agent_client_identifier: load_fn!(agent_client_lib, "MaaAgentClientIdentifier"),
                 maa_agent_client_bind_resource: load_fn!(

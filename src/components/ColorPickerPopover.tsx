@@ -54,35 +54,33 @@ export function ColorPickerPopover({
     setRgbInput({ r: String(r), g: String(g), b: String(b) });
   }, [color]);
 
-  const handleRgbChange =
-    (channel: 'r' | 'g' | 'b') =>
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value;
+  const handleRgbChange = (channel: 'r' | 'g' | 'b') => (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
 
-      // allow empty string while typing
-      if (raw === '') {
-        setRgbInput((prev) => ({ ...prev, [channel]: '' }));
-        return;
-      }
+    // allow empty string while typing
+    if (raw === '') {
+      setRgbInput((prev) => ({ ...prev, [channel]: '' }));
+      return;
+    }
 
-      // only allow digits
-      if (!/^\d+$/.test(raw)) return;
+    // only allow digits
+    if (!/^\d+$/.test(raw)) return;
 
-      const numeric = parseInt(raw, 10);
-      if (Number.isNaN(numeric)) return;
+    const numeric = parseInt(raw, 10);
+    if (Number.isNaN(numeric)) return;
 
-      // keep input within 0-255
-      const clamped = clampChannel(numeric);
-      setRgbInput((prev) => ({ ...prev, [channel]: String(clamped) }));
+    // keep input within 0-255
+    const clamped = clampChannel(numeric);
+    setRgbInput((prev) => ({ ...prev, [channel]: String(clamped) }));
 
-      const current = hexToRgb(color);
-      const merged = {
-        ...current,
-        [channel]: clamped,
-      };
-      const nextHex = rgbToHex(merged.r, merged.g, merged.b);
-      onChange(nextHex);
+    const current = hexToRgb(color);
+    const merged = {
+      ...current,
+      [channel]: clamped,
     };
+    const nextHex = rgbToHex(merged.r, merged.g, merged.b);
+    onChange(nextHex);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -181,4 +179,3 @@ export function ColorPickerPopover({
     </div>
   );
 }
-

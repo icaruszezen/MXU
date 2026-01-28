@@ -180,7 +180,9 @@ export function getAccentInfoList(lang: string, customAccents?: CustomAccent[]):
     if (seen.has(String(name))) return false;
     seen.add(String(name));
     // only include if exists (custom accents can be empty during boot)
-    return !!(customAccentThemes[name as string] || accentThemes[name as keyof typeof accentThemes]);
+    return !!(
+      customAccentThemes[name as string] || accentThemes[name as keyof typeof accentThemes]
+    );
   });
 
   return all.map((name) => {

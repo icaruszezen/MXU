@@ -19,7 +19,7 @@ export function findSwitchCase(
   isChecked: boolean,
 ): CaseItem | undefined {
   if (!cases) return undefined;
-  
+
   const targetNames: readonly string[] = isChecked ? YES_CASE_NAMES : NO_CASE_NAMES;
   return cases.find((c) => targetNames.includes(c.name));
 }
