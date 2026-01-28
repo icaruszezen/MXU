@@ -397,18 +397,16 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
 }
 
 /**
- * 获取 GitHub 最新 Release
+ * 根据版本号获取 GitHub Release
+ * 在 releases 列表中查找 tag_name 匹配的 release（支持带/不带 v 前缀）
  */
-async function getGitHubLatestRelease(
+async function getGitHubReleaseByVersion(
   owner: string,
   repo: string,
-  prerelease = false,
+  targetVersion: string,
 ): Promise<GitHubRelease | null> {
   try {
-    // 如果需要预发布版本，需要获取所有 releases 然后找最新的
-    const url = prerelease
-      ? `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases`
-      : `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases/latest`;
+    const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases`;
 
     const response = await tauriFetch(url, {
       headers: {
@@ -422,14 +420,23 @@ async function getGitHubLatestRelease(
       return null;
     }
 
-    const data = await response.json();
+    const releases: GitHubRelease[] = await response.json();
 
-    if (prerelease && Array.isArray(data)) {
-      // 找到最新的 release（包括预发布）
-      return data[0] || null;
+    // 标准化版本号进行匹配（忽略 v 前缀）
+    const normalizeVersion = (v: string) => v.replace(/^v/i, '').toLowerCase();
+    const targetNormalized = normalizeVersion(targetVersion);
+
+    const matched = releases.find(
+      (release) => normalizeVersion(release.tag_name) === targetNormalized,
+    );
+
+    if (matched) {
+      log.info(`找到匹配版本的 GitHub Release: ${matched.tag_name}`);
+      return matched;
     }
 
-    return data as GitHubRelease;
+    log.warn(`未在 GitHub releases 中找到版本: ${targetVersion}`);
+    return null;
   } catch (error) {
     log.error('获取 GitHub Release 失败:', error);
     return null;
@@ -485,17 +492,18 @@ function matchGitHubAsset(assets: GitHubAsset[]): GitHubAsset | null {
 
 export interface GetGitHubDownloadUrlOptions {
   githubUrl: string;
-  channel?: UpdateChannel;
+  targetVersion: string; // Mirror酱返回的目标版本号
 }
 
 /**
  * 获取 GitHub 下载链接
+ * 根据 Mirror酱返回的版本号在 GitHub releases 中查找对应的 release
  * @returns 下载链接和文件大小，或 null（失败时）
  */
 export async function getGitHubDownloadUrl(
   options: GetGitHubDownloadUrlOptions,
 ): Promise<{ url: string; size: number; filename: string } | null> {
-  const { githubUrl, channel = 'stable' } = options;
+  const { githubUrl, targetVersion } = options;
 
   const parsed = parseGitHubUrl(githubUrl);
   if (!parsed) {
@@ -504,9 +512,9 @@ export async function getGitHubDownloadUrl(
   }
 
   const { owner, repo } = parsed;
-  const prerelease = channel !== 'stable';
 
-  const release = await getGitHubLatestRelease(owner, repo, prerelease);
+  // 根据 Mirror酱返回的版本号查找对应的 release
+  const release = await getGitHubReleaseByVersion(owner, repo, targetVersion);
   if (!release) {
     log.warn('未找到 GitHub Release');
     return null;
@@ -666,8 +674,11 @@ export async function checkAndPrepareDownload(
 
   // 没有 CDK 或没有下载链接，尝试使用 GitHub
   if (githubUrl) {
-    log.info('无 CDK 或无下载链接，尝试使用 GitHub 下载');
-    const githubDownload = await getGitHubDownloadUrl({ githubUrl, channel });
+    log.info(`无 CDK 或无下载链接，尝试从 GitHub 获取版本 ${updateInfo.versionName}`);
+    const githubDownload = await getGitHubDownloadUrl({
+      githubUrl,
+      targetVersion: updateInfo.versionName,
+    });
 
     if (githubDownload) {
       return {
