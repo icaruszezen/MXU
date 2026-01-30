@@ -127,7 +127,10 @@ export interface AppState {
   getActiveInstance: () => Instance | null;
 
   // 任务操作
-  addTaskToInstance: (instanceId: string, task: { name: string; option?: string[]; description?: string }) => void;
+  addTaskToInstance: (
+    instanceId: string,
+    task: { name: string; option?: string[]; description?: string },
+  ) => void;
   removeTaskFromInstance: (instanceId: string, taskId: string) => void;
   reorderTasks: (instanceId: string, oldIndex: number, newIndex: number) => void;
   toggleTaskEnabled: (instanceId: string, taskId: string) => void;

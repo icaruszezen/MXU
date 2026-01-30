@@ -9,9 +9,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use crate::maa_ffi::{
-    MaaAgentClient, MaaController, MaaResource, MaaTasker, MAA_LIBRARY,
-};
+use crate::maa_ffi::{MaaAgentClient, MaaController, MaaResource, MaaTasker, MAA_LIBRARY};
 
 // ============================================================================
 // 数据类型定义

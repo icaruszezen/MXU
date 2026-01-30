@@ -177,7 +177,9 @@ export function AppearanceSection({
                         : 'border-border hover:bg-bg-hover',
                     )}
                     style={
-                      isSelected ? ({ '--tw-ring-color': accent.color } as CSSProperties) : undefined
+                      isSelected
+                        ? ({ '--tw-ring-color': accent.color } as CSSProperties)
+                        : undefined
                     }
                   >
                     <span
@@ -209,8 +211,12 @@ export function AppearanceSection({
           <div className="flex items-center gap-3">
             <ListChecks className="w-5 h-5 text-accent" />
             <div>
-              <span className="font-medium text-text-primary">{t('settings.showOptionPreview')}</span>
-              <p className="text-xs text-text-muted mt-0.5">{t('settings.showOptionPreviewHint')}</p>
+              <span className="font-medium text-text-primary">
+                {t('settings.showOptionPreview')}
+              </span>
+              <p className="text-xs text-text-muted mt-0.5">
+                {t('settings.showOptionPreviewHint')}
+              </p>
             </div>
           </div>
           <button

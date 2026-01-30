@@ -155,7 +155,15 @@ export function UpdateSection() {
         setDownloadStatus('failed');
       }
     },
-    [updateInfo, basePath, setDownloadStatus, setDownloadProgress, setDownloadSavePath, proxySettings, mirrorChyanSettings.cdk],
+    [
+      updateInfo,
+      basePath,
+      setDownloadStatus,
+      setDownloadProgress,
+      setDownloadSavePath,
+      proxySettings,
+      mirrorChyanSettings.cdk,
+    ],
   );
 
   // 处理 CDK 变化

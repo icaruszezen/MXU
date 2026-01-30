@@ -66,8 +66,5 @@ pub fn build_user_agent() -> String {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
     let tauri_version = tauri::VERSION;
-    format!(
-        "MXU/{} ({}; {}) Tauri/{}",
-        version, os, arch, tauri_version
-    )
+    format!("MXU/{} ({}; {}) Tauri/{}", version, os, arch, tauri_version)
 }

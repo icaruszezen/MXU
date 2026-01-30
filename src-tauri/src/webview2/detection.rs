@@ -100,13 +100,19 @@ pub fn is_webview2_installed() -> bool {
 pub fn is_webview2_disabled() -> Option<String> {
     // 检查组策略禁用（通过 BrowserExecutableFolder 设置为特定值或空）
     // 参考: https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-suitable-webview2-runtime-is-already-installed
-    
+
     // 检查 HKCU 和 HKLM 下的策略设置
     let policy_paths = [
-        (HKEY_CURRENT_USER, r"Software\Policies\Microsoft\Edge\WebView2"),
-        (HKEY_LOCAL_MACHINE, r"Software\Policies\Microsoft\Edge\WebView2"),
+        (
+            HKEY_CURRENT_USER,
+            r"Software\Policies\Microsoft\Edge\WebView2",
+        ),
+        (
+            HKEY_LOCAL_MACHINE,
+            r"Software\Policies\Microsoft\Edge\WebView2",
+        ),
     ];
-    
+
     for (root, path) in &policy_paths {
         let path_wide = to_wide(path);
         let mut hkey: HKEY = HKEY::default();
@@ -119,13 +125,13 @@ pub fn is_webview2_disabled() -> Option<String> {
                 &mut hkey,
             )
         };
-        
+
         if result.is_ok() {
             // 检查 BrowserExecutableFolder 值 - 如果设置为空字符串，表示禁用
             let value_name = to_wide("BrowserExecutableFolder");
             let mut buffer = [0u16; 260];
             let mut size = (buffer.len() * 2) as u32;
-            
+
             let value_result = unsafe {
                 RegGetValueW(
                     hkey,
@@ -137,24 +143,26 @@ pub fn is_webview2_disabled() -> Option<String> {
                     Some(&mut size),
                 )
             };
-            
+
             if value_result.is_ok() {
                 // 找到 null 终止符的位置
                 let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
                 let value = String::from_utf16_lossy(&buffer[..len]);
-                
+
                 // 如果值为空字符串，表示通过策略禁用了 WebView2
                 if value.is_empty() {
-                    unsafe { let _ = RegCloseKey(hkey); }
+                    unsafe {
+                        let _ = RegCloseKey(hkey);
+                    }
                     return Some("通过组策略禁用 (BrowserExecutableFolder 为空)".to_string());
                 }
             }
-            
+
             // 检查 ReleaseChannelPreference 或其他禁用标志
             let release_channel = to_wide("ReleaseChannelPreference");
             let mut dword_value: u32 = 0;
             let mut dword_size = std::mem::size_of::<u32>() as u32;
-            
+
             let dword_result = unsafe {
                 RegGetValueW(
                     hkey,
@@ -166,22 +174,24 @@ pub fn is_webview2_disabled() -> Option<String> {
                     Some(&mut dword_size),
                 )
             };
-            
+
             // 值为 0 可能表示禁用了 Evergreen WebView2
             if dword_result.is_ok() && dword_value == 0 {
                 // 这不一定表示完全禁用，只是偏好设置，继续检查其他项
             }
-            
-            unsafe { let _ = RegCloseKey(hkey); }
+
+            unsafe {
+                let _ = RegCloseKey(hkey);
+            }
         }
     }
-    
+
     // 检查 Edge 是否被完全禁用（这也会影响 WebView2）
     let edge_disable_paths = [
         (HKEY_CURRENT_USER, r"Software\Policies\Microsoft\Edge"),
         (HKEY_LOCAL_MACHINE, r"Software\Policies\Microsoft\Edge"),
     ];
-    
+
     for (root, path) in &edge_disable_paths {
         let path_wide = to_wide(path);
         let mut hkey: HKEY = HKEY::default();
@@ -194,13 +204,13 @@ pub fn is_webview2_disabled() -> Option<String> {
                 &mut hkey,
             )
         };
-        
+
         if result.is_ok() {
             // 检查 Enabled 值（0 表示禁用）
             let enabled_name = to_wide("Enabled");
             let mut dword_value: u32 = 1;
             let mut dword_size = std::mem::size_of::<u32>() as u32;
-            
+
             let value_result = unsafe {
                 RegGetValueW(
                     hkey,
@@ -212,21 +222,24 @@ pub fn is_webview2_disabled() -> Option<String> {
                     Some(&mut dword_size),
                 )
             };
-            
-            unsafe { let _ = RegCloseKey(hkey); }
-            
+
+            unsafe {
+                let _ = RegCloseKey(hkey);
+            }
+
             if value_result.is_ok() && dword_value == 0 {
                 return Some("Microsoft Edge 已被组策略禁用".to_string());
             }
         }
     }
-    
+
     // 检查 Windows 功能中 WebView2 是否被禁用
     // 通过检查 Windows 可选功能状态
-    let feature_paths = [
-        (HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\EdgeWebView"),
-    ];
-    
+    let feature_paths = [(
+        HKEY_LOCAL_MACHINE,
+        r"SOFTWARE\Policies\Microsoft\EdgeWebView",
+    )];
+
     for (root, path) in &feature_paths {
         let path_wide = to_wide(path);
         let mut hkey: HKEY = HKEY::default();
@@ -239,13 +252,13 @@ pub fn is_webview2_disabled() -> Option<String> {
                 &mut hkey,
             )
         };
-        
+
         if result.is_ok() {
             // 检查 Enabled 值
             let enabled_name = to_wide("Enabled");
             let mut dword_value: u32 = 1;
             let mut dword_size = std::mem::size_of::<u32>() as u32;
-            
+
             let value_result = unsafe {
                 RegGetValueW(
                     hkey,
@@ -257,24 +270,29 @@ pub fn is_webview2_disabled() -> Option<String> {
                     Some(&mut dword_size),
                 )
             };
-            
-            unsafe { let _ = RegCloseKey(hkey); }
-            
+
+            unsafe {
+                let _ = RegCloseKey(hkey);
+            }
+
             if value_result.is_ok() && dword_value == 0 {
                 return Some("WebView2 已被组策略禁用".to_string());
             }
         }
     }
-    
+
     // 检查 IFEO (Image File Execution Options) 禁用
     // Edge Blocker v2.0 等工具使用这种方式禁用 Edge/WebView2
     // 通过设置 Debugger 值来阻止进程启动
     let ifeo_targets = [
         ("msedgewebview2.exe", "WebView2 进程 (msedgewebview2.exe)"),
         ("msedge.exe", "Edge 浏览器进程 (msedge.exe)"),
-        ("MicrosoftEdgeUpdate.exe", "Edge 更新服务 (MicrosoftEdgeUpdate.exe)"),
+        (
+            "MicrosoftEdgeUpdate.exe",
+            "Edge 更新服务 (MicrosoftEdgeUpdate.exe)",
+        ),
     ];
-    
+
     for (exe_name, display_name) in &ifeo_targets {
         let ifeo_path = format!(
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\{}",
@@ -291,13 +309,13 @@ pub fn is_webview2_disabled() -> Option<String> {
                 &mut hkey,
             )
         };
-        
+
         if result.is_ok() {
             // 检查是否存在 Debugger 值（用于阻止进程启动）
             let debugger_name = to_wide("Debugger");
             let mut buffer = [0u16; 260];
             let mut size = (buffer.len() * 2) as u32;
-            
+
             let value_result = unsafe {
                 RegGetValueW(
                     hkey,
@@ -309,14 +327,16 @@ pub fn is_webview2_disabled() -> Option<String> {
                     Some(&mut size),
                 )
             };
-            
-            unsafe { let _ = RegCloseKey(hkey); }
-            
+
+            unsafe {
+                let _ = RegCloseKey(hkey);
+            }
+
             if value_result.is_ok() {
                 // 存在 Debugger 值，表示进程被 IFEO 拦截
                 let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
                 let debugger_value = String::from_utf16_lossy(&buffer[..len]);
-                
+
                 // 如果 Debugger 值不为空，说明被拦截了
                 if !debugger_value.is_empty() {
                     return Some(format!(
@@ -327,6 +347,6 @@ pub fn is_webview2_disabled() -> Option<String> {
             }
         }
     }
-    
+
     None
 }

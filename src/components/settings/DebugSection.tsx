@@ -1,14 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Bug,
-  RefreshCw,
-  Maximize2,
-  FolderOpen,
-  ScrollText,
-  Trash2,
-  Network,
-} from 'lucide-react';
+import { Bug, RefreshCw, Maximize2, FolderOpen, ScrollText, Trash2, Network } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAppStore } from '@/stores/appStore';
@@ -258,8 +250,7 @@ export function DebugSection() {
             <p className="font-medium text-text-primary">{t('debug.pathInfo')}</p>
             {cwd && (
               <p className="break-all">
-                {t('debug.cwd')}:{' '}
-                <span className="font-mono text-text-primary text-xs">{cwd}</span>
+                {t('debug.cwd')}: <span className="font-mono text-text-primary text-xs">{cwd}</span>
               </p>
             )}
             {exeDir && (
