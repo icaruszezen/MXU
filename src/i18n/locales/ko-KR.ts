@@ -69,6 +69,11 @@ export default {
     accentHoverColor: '호버 색상',
     accentLightColor: '라이트 배경',
     accentLightDarkColor: '다크 배경',
+    accentColorConfig: '색상 구성',
+    accentPreview: '미리보기',
+    accentPreviewMainButton: '주요 버튼',
+    accentPreviewLightBg: '라이트 배경',
+    accentPreviewDarkBg: '다크 배경',
     hotkeysStartTasks: '작업 시작 단축키',
     hotkeysStopTasks: '작업 중지 단축키',
     hotkeysHint:
@@ -590,6 +595,13 @@ export default {
     hint: '재시작 후 현재 설정이 자동으로 복원됩니다.',
     restart: '관리자 권한으로 재시작',
     restarting: '재시작 중...',
+  },
+
+  // 로딩 화면
+  loadingScreen: {
+    loadingInterface: 'interface.json을 로드 중...',
+    loadFailed: '로드 실패',
+    retry: '다시 시도',
   },
 
   // VC++ 런타임

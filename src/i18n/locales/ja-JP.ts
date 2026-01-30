@@ -69,6 +69,11 @@ export default {
     accentHoverColor: 'ホバーカラー',
     accentLightColor: 'ライト背景',
     accentLightDarkColor: 'ダーク背景',
+    accentColorConfig: 'カラー設定',
+    accentPreview: 'プレビュー',
+    accentPreviewMainButton: 'メインボタン',
+    accentPreviewLightBg: 'ライト背景',
+    accentPreviewDarkBg: 'ダーク背景',
     hotkeysStartTasks: 'タスク開始ショートカット',
     hotkeysStopTasks: 'タスク停止ショートカット',
     hotkeysHint:
@@ -598,6 +603,13 @@ export default {
     hint: '再起動後、現在の設定は自動的に復元されます。',
     restart: '管理者として再起動',
     restarting: '再起動中...',
+  },
+
+  // ローディング画面
+  loadingScreen: {
+    loadingInterface: 'interface.json を読み込み中...',
+    loadFailed: '読み込みに失敗しました',
+    retry: '再試行',
   },
 
   // VC++ ランタイム

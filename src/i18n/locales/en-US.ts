@@ -69,6 +69,11 @@ export default {
     accentHoverColor: 'Hover Color',
     accentLightColor: 'Light Background',
     accentLightDarkColor: 'Dark Background',
+    accentColorConfig: 'Color Configuration',
+    accentPreview: 'Preview',
+    accentPreviewMainButton: 'Primary Button',
+    accentPreviewLightBg: 'Light Background',
+    accentPreviewDarkBg: 'Dark Background',
     hotkeysStartTasks: 'Start Tasks Hotkey',
     hotkeysStopTasks: 'Stop Tasks Hotkey',
     hotkeysHint:
@@ -596,6 +601,13 @@ export default {
     hint: 'Your current configuration will be restored after restart.',
     restart: 'Restart as Administrator',
     restarting: 'Restarting...',
+  },
+
+  // Loading screen
+  loadingScreen: {
+    loadingInterface: 'Loading interface.json...',
+    loadFailed: 'Loading Failed',
+    retry: 'Retry',
   },
 
   // VC++ Runtime

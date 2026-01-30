@@ -23,6 +23,57 @@ export default defineConfig(async () => ({
   define: {
     __MXU_VERSION__: JSON.stringify(mxuVersion),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, "/");
+          if (normalizedId.includes("node_modules")) {
+            // React 核心 - 必须精确匹配 react-dom
+            if (normalizedId.includes("/react-dom/")) {
+              return "vendor-react-dom";
+            }
+            if (normalizedId.includes("/react/")) {
+              return "vendor-react";
+            }
+            // Markdown 渲染
+            if (normalizedId.includes("/marked/") || normalizedId.includes("/dompurify/")) {
+              return "vendor-markdown";
+            }
+            // 工具库
+            if (
+              normalizedId.includes("/semver/") ||
+              normalizedId.includes("/jsonc-parser/") ||
+              normalizedId.includes("/clsx/") ||
+              normalizedId.includes("/loglevel/")
+            ) {
+              return "vendor-utils";
+            }
+            // 国际化（并入 React vendor，避免 chunk 环依赖）
+            if (normalizedId.includes("/i18next/") || normalizedId.includes("/react-i18next/")) {
+              return "vendor-react";
+            }
+            // UI 组件
+            if (
+              normalizedId.includes("/lucide-react/") ||
+              normalizedId.includes("/react-colorful/") ||
+              normalizedId.includes("/@radix-ui/")
+            ) {
+              return "vendor-ui";
+            }
+            // 拖拽
+            if (normalizedId.includes("/@dnd-kit/")) {
+              return "vendor-dnd";
+            }
+            // Tauri 相关
+            if (normalizedId.includes("/@tauri-apps/")) {
+              return "vendor-tauri";
+            }
+          }
+        },
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

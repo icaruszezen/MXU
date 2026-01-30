@@ -69,6 +69,11 @@ export default {
     accentHoverColor: '懸停色',
     accentLightColor: '淺色背景',
     accentLightDarkColor: '深色背景',
+    accentColorConfig: '顏色配置',
+    accentPreview: '預覽效果',
+    accentPreviewMainButton: '主要按鈕',
+    accentPreviewLightBg: '淺色背景',
+    accentPreviewDarkBg: '深色背景',
     hotkeysStartTasks: '開始任務快捷鍵',
     hotkeysStopTasks: '結束任務快捷鍵',
     hotkeysHint:
@@ -588,6 +593,13 @@ export default {
     hint: '重啟後將自動恢復目前設定。',
     restart: '以管理員身分重啟',
     restarting: '正在重啟...',
+  },
+
+  // 載入畫面
+  loadingScreen: {
+    loadingInterface: '正在載入 interface.json...',
+    loadFailed: '載入失敗',
+    retry: '重試',
   },
 
   // VC++ 執行库
