@@ -259,17 +259,24 @@ export async function checkUpdate(options: CheckUpdateOptions): Promise<UpdateIn
     }
   }
 
-  // 所有站点都失败
+  // 所有站点都失败或返回错误
   if (!data || data.code !== 0) {
     if (data && data.code !== 0) {
       log.warn(`更新检查返回错误: code=${data.code}, msg=${data.msg}`);
-      // code 非 0 但仍可能有版本信息，同时返回错误码
+      // code 非 0 但仍可能有版本信息，根据版本比较判断是否有更新
       if (data.data?.version_name) {
+        const hasUpdate = compareVersions(data.data.version_name, currentVersion) > 0;
+        log.info(
+          `更新检查完成（带错误码）: 最新版本=${data.data.version_name}, 有更新=${hasUpdate}`,
+        );
         return {
-          hasUpdate: false,
+          hasUpdate,
           versionName: data.data.version_name,
           releaseNote: data.data.release_note || '',
           channel: data.data.channel,
+          fileSize: data.data.filesize,
+          updateType: data.data.update_type,
+          // 注意：code != 0 时没有下载链接
           errorCode: data.code,
           errorMessage: data.msg,
         };
@@ -672,9 +679,15 @@ export async function checkAndPrepareDownload(
     return updateInfo;
   }
 
-  // 没有 CDK 或没有下载链接，尝试使用 GitHub
+  // 如果有错误码（如 CDK 问题），不尝试 GitHub，直接返回更新信息（包含错误）
+  if (updateInfo.errorCode) {
+    log.info('Mirror酱 返回错误码，不尝试 GitHub');
+    return updateInfo;
+  }
+
+  // 没有 CDK 且没有错误码，尝试使用 GitHub
   if (githubUrl) {
-    log.info(`无 CDK 或无下载链接，尝试从 GitHub 获取版本 ${updateInfo.versionName}`);
+    log.info(`无 CDK，尝试从 GitHub 获取版本 ${updateInfo.versionName}`);
     const githubDownload = await getGitHubDownloadUrl({
       githubUrl,
       targetVersion: updateInfo.versionName,

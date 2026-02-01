@@ -470,6 +470,10 @@ function App() {
                   if (updateResult.downloadUrl) {
                     startAutoDownload(updateResult, downloadBasePath);
                   }
+                } else if (updateResult.errorCode) {
+                  // API 返回错误（如 CDK 问题），也弹出气泡提示用户
+                  log.warn(`更新检查返回错误: code=${updateResult.errorCode}`);
+                  useAppStore.getState().setShowUpdateDialog(true);
                 }
               }
             })
@@ -557,14 +561,15 @@ function App() {
       if (downloadStatus === 'completed') {
         setShowInstallConfirmModal(true);
       }
-      // 有更新或正在下载：弹出更新气泡
-      else if (updateInfo?.hasUpdate || downloadStatus === 'downloading') {
+      // 有更新、有错误或正在下载：弹出更新气泡
+      else if (updateInfo?.hasUpdate || updateInfo?.errorCode || downloadStatus === 'downloading') {
         setShowUpdateDialog(true);
       }
     }
   }, [
     currentPage,
     updateInfo?.hasUpdate,
+    updateInfo?.errorCode,
     downloadStatus,
     setShowUpdateDialog,
     setShowInstallConfirmModal,
