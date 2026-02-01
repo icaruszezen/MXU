@@ -137,7 +137,7 @@ export function LogsPanel() {
   const getLogPrefix = (type: LogType) => {
     switch (type) {
       case 'agent':
-        return '[Agent] ';
+        return '';
       case 'focus':
         return '';
       default:

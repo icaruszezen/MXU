@@ -535,7 +535,7 @@ marked.use({
 export function markdownToHtml(markdown: string): string {
   const rawHtml = marked.parse(markdown, { async: false }) as string;
   return DOMPurify.sanitize(rawHtml, {
-    ADD_ATTR: ['target', 'rel'],
+    ADD_ATTR: ['target', 'rel', 'style'],
   });
 }
 

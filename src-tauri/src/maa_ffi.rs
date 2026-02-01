@@ -240,6 +240,12 @@ type FnMaaAgentClientBindResource =
 type FnMaaAgentClientConnect = unsafe extern "C" fn(*mut MaaAgentClient) -> MaaBool;
 type FnMaaAgentClientDisconnect = unsafe extern "C" fn(*mut MaaAgentClient) -> MaaBool;
 type FnMaaAgentClientSetTimeout = unsafe extern "C" fn(*mut MaaAgentClient, i64) -> MaaBool;
+type FnMaaAgentClientRegisterResourceSink =
+    unsafe extern "C" fn(*mut MaaAgentClient, *mut MaaResource) -> MaaBool;
+type FnMaaAgentClientRegisterControllerSink =
+    unsafe extern "C" fn(*mut MaaAgentClient, *mut MaaController) -> MaaBool;
+type FnMaaAgentClientRegisterTaskerSink =
+    unsafe extern "C" fn(*mut MaaAgentClient, *mut MaaTasker) -> MaaBool;
 
 /// MaaFramework 库包装器
 pub struct MaaLibrary {
@@ -337,6 +343,9 @@ pub struct MaaLibrary {
     pub maa_agent_client_connect: FnMaaAgentClientConnect,
     pub maa_agent_client_disconnect: FnMaaAgentClientDisconnect,
     pub maa_agent_client_set_timeout: FnMaaAgentClientSetTimeout,
+    pub maa_agent_client_register_resource_sink: FnMaaAgentClientRegisterResourceSink,
+    pub maa_agent_client_register_controller_sink: FnMaaAgentClientRegisterControllerSink,
+    pub maa_agent_client_register_tasker_sink: FnMaaAgentClientRegisterTaskerSink,
 }
 
 // 注意：函数指针是 Send 和 Sync 的
@@ -602,6 +611,18 @@ impl MaaLibrary {
                 maa_agent_client_set_timeout: load_fn!(
                     agent_client_lib,
                     "MaaAgentClientSetTimeout"
+                ),
+                maa_agent_client_register_resource_sink: load_fn!(
+                    agent_client_lib,
+                    "MaaAgentClientRegisterResourceSink"
+                ),
+                maa_agent_client_register_controller_sink: load_fn!(
+                    agent_client_lib,
+                    "MaaAgentClientRegisterControllerSink"
+                ),
+                maa_agent_client_register_tasker_sink: load_fn!(
+                    agent_client_lib,
+                    "MaaAgentClientRegisterTaskerSink"
                 ),
 
                 _framework_lib: framework_lib,
