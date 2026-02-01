@@ -457,10 +457,10 @@ async function getGitHubReleaseByVersion(
 function getDownloadExtensions(): string[] {
   const os = getOS();
   if (os === 'windows') {
-    return ['.zip'];
+    return ['.zip', '.exe'];
   }
   else if (os === 'linux') {
-    return ['.zip', '.tar.gz', '.tgz', '.AppImage'];
+    return ['.zip', '.tar.gz', '.tgz'];
   }
   else if (os === 'darwin') {
     return ['.zip', '.tar.gz', '.tgz', '.dmg'];
