@@ -2,6 +2,7 @@ import type { ProjectInterface, Instance, OptionValue, SavedDeviceInfo } from '@
 import type {
   MxuConfig,
   WindowSize,
+  WindowPosition,
   UpdateChannel,
   MirrorChyanSettings,
   ProxySettings,
@@ -261,6 +262,10 @@ export interface AppState {
   // 窗口大小
   windowSize: WindowSize;
   setWindowSize: (size: WindowSize) => void;
+
+  // 窗口位置
+  windowPosition: WindowPosition | undefined;
+  setWindowPosition: (position: WindowPosition | undefined) => void;
 
   // MirrorChyan 更新设置
   mirrorChyanSettings: MirrorChyanSettings;

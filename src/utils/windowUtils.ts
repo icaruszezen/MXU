@@ -61,6 +61,44 @@ export async function setWindowSize(width: number, height: number) {
 }
 
 /**
+ * 设置窗口位置
+ */
+export async function setWindowPosition(x: number, y: number) {
+  if (isTauri()) {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const { LogicalPosition } = await import('@tauri-apps/api/dpi');
+      const currentWindow = getCurrentWindow();
+      await currentWindow.setPosition(new LogicalPosition(x, y));
+    } catch (err) {
+      log.warn('设置窗口位置失败:', err);
+    }
+  }
+}
+
+/**
+ * 获取当前窗口位置
+ */
+export async function getWindowPosition(): Promise<{ x: number; y: number } | null> {
+  if (isTauri()) {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const currentWindow = getCurrentWindow();
+      const position = await currentWindow.outerPosition();
+      const scaleFactor = await currentWindow.scaleFactor();
+      // 转换为逻辑像素
+      return {
+        x: Math.round(position.x / scaleFactor),
+        y: Math.round(position.y / scaleFactor),
+      };
+    } catch (err) {
+      log.warn('获取窗口位置失败:', err);
+    }
+  }
+  return null;
+}
+
+/**
  * 获取当前窗口大小
  */
 export async function getWindowSize(): Promise<{ width: number; height: number } | null> {

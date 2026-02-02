@@ -48,7 +48,9 @@ import {
   isValidWindowSize,
   setWindowTitle,
   setWindowSize,
+  setWindowPosition,
   getWindowSize,
+  getWindowPosition,
   MIN_LEFT_PANEL_WIDTH,
 } from '@/utils/windowUtils';
 import { VersionWarningModal, LoadingScreen } from './components/app';
@@ -97,6 +99,7 @@ function App() {
     dashboardView,
     setDashboardView,
     setWindowSize: setWindowSizeStore,
+    setWindowPosition: setWindowPositionStore,
     setUpdateInfo,
     restoreBackendStates,
     setDownloadStatus,
@@ -344,9 +347,12 @@ function App() {
         importConfig(config);
       }
 
-      // 应用保存的窗口大小
+      // 应用保存的窗口大小和位置
       if (config.settings.windowSize) {
         await setWindowSize(config.settings.windowSize.width, config.settings.windowSize.height);
+      }
+      if (config.settings.windowPosition) {
+        await setWindowPosition(config.settings.windowPosition.x, config.settings.windowPosition.y);
       }
 
       // 从后端恢复 MAA 运行时状态（连接状态、资源加载状态、设备缓存等）
@@ -584,19 +590,21 @@ function App() {
     }
   }, [downloadStatus, setShowInstallConfirmModal]);
 
-  // 监听窗口大小变化
+  // 监听窗口大小和位置变化
   useEffect(() => {
     if (!isTauri()) return;
 
-    let unlisten: (() => void) | null = null;
+    let unlistenResize: (() => void) | null = null;
+    let unlistenMove: (() => void) | null = null;
     let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+    let moveTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const setupListener = async () => {
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const currentWindow = getCurrentWindow();
 
-        unlisten = await currentWindow.onResized(async () => {
+        unlistenResize = await currentWindow.onResized(async () => {
           // 防抖处理，避免频繁保存
           if (resizeTimeout) {
             clearTimeout(resizeTimeout);
@@ -608,22 +616,41 @@ function App() {
             }
           }, 500);
         });
+
+        unlistenMove = await currentWindow.onMoved(async () => {
+          // 防抖处理，避免频繁保存
+          if (moveTimeout) {
+            clearTimeout(moveTimeout);
+          }
+          moveTimeout = setTimeout(async () => {
+            const position = await getWindowPosition();
+            if (position) {
+              setWindowPositionStore(position);
+            }
+          }, 500);
+        });
       } catch (err) {
-        log.warn('监听窗口大小变化失败:', err);
+        log.warn('监听窗口大小/位置变化失败:', err);
       }
     };
 
     setupListener();
 
     return () => {
-      if (unlisten) {
-        unlisten();
+      if (unlistenResize) {
+        unlistenResize();
+      }
+      if (unlistenMove) {
+        unlistenMove();
       }
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
       }
+      if (moveTimeout) {
+        clearTimeout(moveTimeout);
+      }
     };
-  }, [setWindowSizeStore]);
+  }, [setWindowSizeStore, setWindowPositionStore]);
 
   // 禁用浏览器默认右键菜单（让自定义菜单生效）
   useEffect(() => {

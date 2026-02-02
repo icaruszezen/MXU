@@ -9,6 +9,7 @@ export default {
     edit: '编辑',
     add: '添加',
     close: '关闭',
+    reset: '重置',
     loading: '加载中...',
     error: '错误',
     success: '成功',
@@ -86,6 +87,8 @@ export default {
     confirmBeforeDeleteHint: '删除任务、清空列表、导入覆盖等操作会先弹出确认对话框',
     maxLogsPerInstance: '每个实例保留的日志上限',
     maxLogsPerInstanceHint: '超过上限会自动丢弃最旧的日志（建议 500～2000）',
+    resetWindowLayout: '重置窗口布局',
+    resetWindowLayoutHint: '将窗口大小恢复为默认值，并居中显示',
   },
 
   // 任务列表
@@ -335,7 +338,7 @@ export default {
     pathInfo: '路径信息',
     cwd: '当前工作目录',
     exeDir: '程序所在目录',
-    resetWindowSize: '重置窗口尺寸',
+    resetWindowLayout: '重置窗口布局',
     openConfigDir: '打开配置目录',
     openLogDir: '打开日志目录',
     clearCache: '清空缓存',

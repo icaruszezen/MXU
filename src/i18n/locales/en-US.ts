@@ -9,6 +9,7 @@ export default {
     edit: 'Edit',
     add: 'Add',
     close: 'Close',
+    reset: 'Reset',
     loading: 'Loading...',
     error: 'Error',
     success: 'Success',
@@ -87,6 +88,8 @@ export default {
     maxLogsPerInstance: 'Max logs per instance',
     maxLogsPerInstanceHint:
       'Oldest logs will be discarded when exceeding the limit (recommended 500–2000)',
+    resetWindowLayout: 'Reset Window Layout',
+    resetWindowLayoutHint: 'Restore window size to default and center the window',
   },
 
   // Task list
@@ -339,7 +342,7 @@ export default {
     pathInfo: 'Path Information',
     cwd: 'Current Working Directory',
     exeDir: 'Executable Directory',
-    resetWindowSize: 'Reset Window Size',
+    resetWindowLayout: 'Reset Window Layout',
     openConfigDir: 'Open Config Dir',
     openLogDir: 'Open Log Dir',
     clearCache: 'Clear Cache',

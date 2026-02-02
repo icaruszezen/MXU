@@ -109,10 +109,10 @@ export function DebugSection() {
     }
   }, [basePath]);
 
-  // 调试：重置窗口尺寸
-  const handleResetWindowSize = async () => {
+  // 调试：重置窗口布局（尺寸和位置）
+  const handleResetWindowLayout = async () => {
     if (!isTauri()) {
-      addDebugLog('仅 Tauri 环境支持重置窗口尺寸');
+      addDebugLog('仅 Tauri 环境支持重置窗口布局');
       return;
     }
 
@@ -120,19 +120,25 @@ export function DebugSection() {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       const { LogicalSize } = await import('@tauri-apps/api/dpi');
       const currentWindow = getCurrentWindow();
+      
+      // 重置窗口尺寸
       await currentWindow.setSize(
         new LogicalSize(defaultWindowSize.width, defaultWindowSize.height),
       );
+      
+      // 居中窗口（同时清除保存的位置）
+      await currentWindow.center();
+      useAppStore.getState().setWindowPosition(undefined);
 
       // 同时也重置右侧面板尺寸和状态
       setRightPanelWidth(320);
       setRightPanelCollapsed(false);
 
       addDebugLog(
-        `窗口尺寸已重置为 ${defaultWindowSize.width}x${defaultWindowSize.height}，界面布局已重置`,
+        `窗口布局已重置：尺寸 ${defaultWindowSize.width}x${defaultWindowSize.height}，位置居中`,
       );
     } catch (err) {
-      addDebugLog(`重置窗口尺寸失败: ${err}`);
+      addDebugLog(`重置窗口布局失败: ${err}`);
     }
   };
 
@@ -265,11 +271,11 @@ export function DebugSection() {
         {/* 操作按钮 */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={handleResetWindowSize}
+            onClick={handleResetWindowLayout}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-bg-tertiary hover:bg-bg-hover rounded-lg transition-colors"
           >
             <Maximize2 className="w-4 h-4" />
-            {t('debug.resetWindowSize')}
+            {t('debug.resetWindowLayout')}
           </button>
           <button
             onClick={handleOpenConfigDir}

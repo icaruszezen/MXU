@@ -773,6 +773,7 @@ export const useAppStore = create<AppState>()(
         selectedResource,
         nextInstanceNumber: maxNumber + 1,
         windowSize: config.settings.windowSize || defaultWindowSize,
+        windowPosition: config.settings.windowPosition,
         mirrorChyanSettings: config.settings.mirrorChyan || defaultMirrorChyanSettings,
         proxySettings: config.settings.proxy,
         showOptionPreview: config.settings.showOptionPreview ?? true,
@@ -1003,6 +1004,10 @@ export const useAppStore = create<AppState>()(
     // 窗口大小
     windowSize: defaultWindowSize,
     setWindowSize: (size) => set({ windowSize: size }),
+
+    // 窗口位置
+    windowPosition: undefined,
+    setWindowPosition: (position) => set({ windowPosition: position }),
 
     // MirrorChyan 更新设置
     mirrorChyanSettings: defaultMirrorChyanSettings,
@@ -1397,6 +1402,7 @@ function generateConfig(): MxuConfig {
       confirmBeforeDelete: state.confirmBeforeDelete,
       maxLogsPerInstance: state.maxLogsPerInstance,
       windowSize: state.windowSize,
+      windowPosition: state.windowPosition,
       mirrorChyan: state.mirrorChyanSettings,
       proxy: state.proxySettings,
       showOptionPreview: state.showOptionPreview,
@@ -1448,6 +1454,7 @@ useAppStore.subscribe(
     confirmBeforeDelete: state.confirmBeforeDelete,
     maxLogsPerInstance: state.maxLogsPerInstance,
     windowSize: state.windowSize,
+    windowPosition: state.windowPosition,
     mirrorChyanSettings: state.mirrorChyanSettings,
     proxySettings: state.proxySettings,
     showOptionPreview: state.showOptionPreview,
