@@ -81,10 +81,7 @@ export function ScreenshotPanel() {
     if (!instanceId) return null;
 
     try {
-      const screencapId = await withTimeout(
-        maaService.postScreencap(instanceId),
-        API_TIMEOUT,
-      );
+      const screencapId = await withTimeout(maaService.postScreencap(instanceId), API_TIMEOUT);
       if (screencapId < 0) {
         throw new Error('Failed to post screencap');
       }
@@ -94,10 +91,7 @@ export function ScreenshotPanel() {
         throw new Error('Screencap failed');
       }
 
-      const imageData = await withTimeout(
-        maaService.getCachedImage(instanceId),
-        API_TIMEOUT,
-      );
+      const imageData = await withTimeout(maaService.getCachedImage(instanceId), API_TIMEOUT);
       return imageData || null;
     } catch (err) {
       log.warn('截图失败:', err);
@@ -110,10 +104,7 @@ export function ScreenshotPanel() {
     if (!instanceId) return null;
 
     try {
-      const imageData = await withTimeout(
-        maaService.getCachedImage(instanceId),
-        API_TIMEOUT,
-      );
+      const imageData = await withTimeout(maaService.getCachedImage(instanceId), API_TIMEOUT);
       return imageData || null;
     } catch (err) {
       log.warn('获取缓存截图失败:', err);
@@ -195,10 +186,7 @@ export function ScreenshotPanel() {
       lastFrameTimeRef.current = Date.now();
 
       try {
-        const isRunning = await withTimeout(
-          maaService.isRunning(loopInstanceId),
-          API_TIMEOUT,
-        );
+        const isRunning = await withTimeout(maaService.isRunning(loopInstanceId), API_TIMEOUT);
 
         let imageData: string | null = null;
 

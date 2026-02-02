@@ -1136,7 +1136,9 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
 
       const before = currentInstance.isRunning;
       await handleStartStop();
-      const after = useAppStore.getState().instances.find((i) => i.id === currentInstance.id)?.isRunning;
+      const after = useAppStore
+        .getState()
+        .instances.find((i) => i.id === currentInstance.id)?.isRunning;
       const success = !before && !!after;
       addLog(currentInstance.id, {
         type: success ? 'success' : 'error',

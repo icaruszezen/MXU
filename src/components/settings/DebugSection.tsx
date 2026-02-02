@@ -120,12 +120,12 @@ export function DebugSection() {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       const { LogicalSize } = await import('@tauri-apps/api/dpi');
       const currentWindow = getCurrentWindow();
-      
+
       // 重置窗口尺寸
       await currentWindow.setSize(
         new LogicalSize(defaultWindowSize.width, defaultWindowSize.height),
       );
-      
+
       // 居中窗口（同时清除保存的位置）
       await currentWindow.center();
       useAppStore.getState().setWindowPosition(undefined);

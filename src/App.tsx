@@ -814,14 +814,18 @@ function App() {
       try {
         await register(toTauriKey(startKey), () => {
           document.dispatchEvent(
-            new CustomEvent('mxu-start-tasks', { detail: { source: 'global-hotkey', combo: startKey } }),
+            new CustomEvent('mxu-start-tasks', {
+              detail: { source: 'global-hotkey', combo: startKey },
+            }),
           );
         });
         // 避免重复注册相同的键
         if (stopKey !== startKey) {
           await register(toTauriKey(stopKey), () => {
             document.dispatchEvent(
-              new CustomEvent('mxu-stop-tasks', { detail: { source: 'global-hotkey', combo: stopKey } }),
+              new CustomEvent('mxu-stop-tasks', {
+                detail: { source: 'global-hotkey', combo: stopKey },
+              }),
             );
           });
         }

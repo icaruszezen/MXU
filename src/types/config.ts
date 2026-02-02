@@ -97,7 +97,7 @@ export interface HotkeySettings {
   /** 结束任务快捷键（例如：F11） */
   stopTasks: string;
   /** 全局快捷键（窗口失焦时也生效） */
-  globalEnabled?: boolean; 
+  globalEnabled?: boolean;
 }
 
 // 应用设置
