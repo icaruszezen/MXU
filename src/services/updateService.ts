@@ -820,7 +820,6 @@ export async function downloadUpdate(options: DownloadUpdateOptions): Promise<Do
 
 export interface CheckAndDownloadOptions extends CheckUpdateOptions {
   githubUrl?: string;
-  basePath: string;
   projectName?: string; // 项目名称，用于 GitHub API 失败时拼接直接下载链接
 }
 
@@ -837,7 +836,7 @@ export async function checkAndPrepareDownload(
     return null;
   }
 
-  const { githubUrl, basePath, cdk, channel, projectName, ...checkOptions } = options;
+  const { githubUrl, cdk, channel, projectName, ...checkOptions } = options;
 
   // 始终使用 Mirror酱 检查更新
   const updateInfo = await checkUpdate({ ...checkOptions, cdk, channel });

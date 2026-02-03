@@ -221,7 +221,6 @@ export function UpdateSection() {
             channel: mirrorChyanSettings.channel,
             userAgent: 'MXU',
             githubUrl: projectInterface!.github,
-            basePath: dataPath,
             projectName: projectInterface!.name,
           });
 
@@ -317,7 +316,6 @@ export function UpdateSection() {
         channel: mirrorChyanSettings.channel,
         userAgent: 'MXU',
         githubUrl: projectInterface.github,
-        basePath: dataPath,
         projectName: projectInterface.name,
       });
 

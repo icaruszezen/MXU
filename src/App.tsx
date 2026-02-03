@@ -203,7 +203,6 @@ function App() {
   const startAutoDownload = useCallback(
     async (
       updateResult: NonNullable<Awaited<ReturnType<typeof checkAndPrepareDownload>>>,
-      downloadDataPath: string,
     ) => {
       if (!updateResult.downloadUrl || downloadStartedRef.current) return;
 
@@ -483,7 +482,6 @@ function App() {
           log.info(`调试版本 (${result.interface.version})，跳过自动更新检查`);
         } else {
           const appState = useAppStore.getState();
-          const downloadDataPath = appState.dataPath;
           checkAndPrepareDownload({
             resourceId: result.interface.mirrorchyan_rid,
             currentVersion: result.interface.version,
@@ -491,7 +489,6 @@ function App() {
             channel: appState.mirrorChyanSettings.channel,
             userAgent: 'MXU',
             githubUrl: result.interface.github,
-            basePath: downloadDataPath,
             projectName: result.interface.name,
           })
             .then((updateResult) => {
@@ -503,7 +500,7 @@ function App() {
                   useAppStore.getState().setShowUpdateDialog(true);
                   // 有更新且有下载链接时自动开始下载
                   if (updateResult.downloadUrl) {
-                    startAutoDownload(updateResult, downloadDataPath);
+                    startAutoDownload(updateResult);
                   }
                 } else if (updateResult.errorCode) {
                   // API 返回错误（如 CDK 问题），也弹出气泡提示用户

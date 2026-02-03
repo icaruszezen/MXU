@@ -109,12 +109,12 @@ export function DebugSection() {
 
   // 加载缓存统计
   useEffect(() => {
-    if (isTauri() && dataPath) {
-      getCacheStats(dataPath).then((stats) => {
+    if (isTauri()) {
+      getCacheStats().then((stats) => {
         setCacheEntryCount(stats.entryCount);
       });
     }
-  }, [dataPath]);
+  }, []);
 
   // 调试：重置窗口布局（尺寸和位置）
   const handleResetWindowLayout = async () => {
@@ -189,7 +189,7 @@ export function DebugSection() {
     }
 
     try {
-      await clearAllCache(dataPath);
+      await clearAllCache();
       setCacheEntryCount(0);
       addDebugLog('缓存已清空');
     } catch (err) {
