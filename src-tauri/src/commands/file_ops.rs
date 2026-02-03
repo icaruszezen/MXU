@@ -174,8 +174,9 @@ pub fn export_logs() -> Result<String, String> {
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
 
-    let exe_dir = get_exe_directory()?;
-    let debug_dir = exe_dir.join("debug");
+    // 日志在数据目录下（macOS: ~/Library/Application Support/MXU/debug）
+    let data_dir = get_app_data_dir()?;
+    let debug_dir = data_dir.join("debug");
 
     if !debug_dir.exists() {
         return Err("日志目录不存在".to_string());
