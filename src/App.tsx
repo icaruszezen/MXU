@@ -520,6 +520,7 @@ function App() {
             channel: appState.mirrorChyanSettings.channel,
             userAgent: 'MXU',
             githubUrl: result.interface.github,
+            githubPat: appState.mirrorChyanSettings.githubPat || undefined,
             projectName: result.interface.name,
           })
             .then((updateResult) => {

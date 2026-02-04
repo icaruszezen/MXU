@@ -443,16 +443,23 @@ async function getGitHubReleaseByVersion(
   owner: string,
   repo: string,
   targetVersion: string,
+  githubPat?: string,
 ): Promise<GitHubRelease | null> {
   try {
     const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/releases`;
 
-    const response = await tauriFetch(url, {
-      headers: {
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': buildUserAgent(),
-      },
-    });
+    // 构建请求头，如果有 PAT 则添加认证
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': buildUserAgent(),
+    };
+
+    if (githubPat && githubPat.trim()) {
+      headers['Authorization'] = `token ${githubPat.trim()}`;
+      log.info('使用 GitHub PAT 进行认证请求');
+    }
+
+    const response = await tauriFetch(url, { headers });
 
     if (!response.ok) {
       log.warn(`GitHub API 返回错误: ${response.status}`);
@@ -629,6 +636,7 @@ function matchGitHubAsset(assets: GitHubAsset[]): GitHubAsset | null {
 export interface GetGitHubDownloadUrlOptions {
   githubUrl: string;
   targetVersion: string; // Mirror酱返回的目标版本号
+  githubPat?: string; // GitHub Personal Access Token (支持 classic 和 fine-grained)
   projectName?: string; // 项目名称，用于拼接直接下载链接（来自 interface.name）
 }
 
@@ -641,7 +649,7 @@ export interface GetGitHubDownloadUrlOptions {
 export async function getGitHubDownloadUrl(
   options: GetGitHubDownloadUrlOptions,
 ): Promise<{ url: string; size: number; filename: string } | null> {
-  const { githubUrl, targetVersion, projectName } = options;
+  const { githubUrl, targetVersion, githubPat, projectName } = options;
 
   const parsed = parseGitHubUrl(githubUrl);
   if (!parsed) {
@@ -651,8 +659,8 @@ export async function getGitHubDownloadUrl(
 
   const { owner, repo } = parsed;
 
-  // 根据 Mirror酱返回的版本号查找对应的 release
-  const release = await getGitHubReleaseByVersion(owner, repo, targetVersion);
+  // 根据 Mirror酱返回的版本号查找对应的 release（传递 PAT）
+  const release = await getGitHubReleaseByVersion(owner, repo, targetVersion, githubPat);
 
   if (release) {
     // API 请求成功，使用 assets 匹配
@@ -822,6 +830,7 @@ export async function downloadUpdate(
 
 export interface CheckAndDownloadOptions extends CheckUpdateOptions {
   githubUrl?: string;
+  githubPat?: string; // GitHub Personal Access Token
   projectName?: string; // 项目名称，用于 GitHub API 失败时拼接直接下载链接
 }
 
@@ -838,7 +847,7 @@ export async function checkAndPrepareDownload(
     return null;
   }
 
-  const { githubUrl, cdk, channel, projectName, ...checkOptions } = options;
+  const { githubUrl, cdk, channel, githubPat, projectName, ...checkOptions } = options;
 
   // 始终使用 Mirror酱 检查更新
   const updateInfo = await checkUpdate({ ...checkOptions, cdk, channel });
@@ -865,6 +874,7 @@ export async function checkAndPrepareDownload(
     const githubDownload = await getGitHubDownloadUrl({
       githubUrl,
       targetVersion: updateInfo.versionName,
+      githubPat,
       projectName, // 用于 API 失败时拼接直接下载链接
     });
 
