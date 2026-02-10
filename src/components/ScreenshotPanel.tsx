@@ -37,6 +37,7 @@ export function ScreenshotPanel() {
   const {
     activeInstanceId,
     instanceConnectionStatus,
+    instanceResourceLoaded,
     sidePanelExpanded,
     instanceScreenshotStreaming,
     setInstanceScreenshotStreaming,
@@ -276,6 +277,14 @@ export function ScreenshotPanel() {
 
   // 连接成功后自动开始实时截图（仅当面板可见且未开启时）
   const connectionStatus = instanceId ? instanceConnectionStatus[instanceId] : undefined;
+  const isResourceLoaded = instanceId ? instanceResourceLoaded[instanceId] : false;
+
+  // 当设备已连接且资源已加载时自动折叠（与连接设置面板行为一致）
+  useEffect(() => {
+    if (connectionStatus === 'Connected' && isResourceLoaded) {
+      setScreenshotPanelExpanded(false);
+    }
+  }, [connectionStatus, isResourceLoaded, setScreenshotPanelExpanded]);
 
   // 面板折叠时暂停截图，展开时自动开始（如果已连接）
   useEffect(() => {
