@@ -1,5 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ProjectInterface, TaskItem, OptionDefinition, ControllerType } from '@/types/interface';
+import type {
+  ProjectInterface,
+  TaskItem,
+  OptionDefinition,
+  ControllerType,
+} from '@/types/interface';
 import { loggers } from '@/utils/logger';
 import { parseJsonc } from '@/utils/jsonc';
 import { isTauri } from '@/utils/paths';

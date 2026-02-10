@@ -482,8 +482,7 @@ export default {
     message:
       'Select a device and load resources in the "Connection Settings" panel on the right — once done, you\'re ready to run tasks.',
     addTaskTitle: 'Add Tasks',
-    addTaskMessage:
-      'Click here to browse available tasks and add the ones you need to the list.',
+    addTaskMessage: 'Click here to browse available tasks and add the ones you need to the list.',
     tabBarTitle: 'Manage Configurations',
     tabBarMessage:
       'Use the tabs at the top to create or switch between configurations — for example, one for daily automation and another for real-time utilities. Each configuration maintains its own tasks and device settings independently.',

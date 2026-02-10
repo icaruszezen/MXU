@@ -710,7 +710,8 @@ export const useAppStore = create<AppState>()(
       // 复制源实例的控制器和资源选择
       const newSelectedController = { ...state.selectedController };
       const newSelectedResource = { ...state.selectedResource };
-      const sourceControllerName = state.selectedController[instanceId] || sourceInstance.controllerName;
+      const sourceControllerName =
+        state.selectedController[instanceId] || sourceInstance.controllerName;
       const sourceResourceName = state.selectedResource[instanceId] || sourceInstance.resourceName;
       if (sourceControllerName) {
         newSelectedController[newId] = sourceControllerName;

@@ -465,7 +465,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
               savedDevice.windowName
             ) {
               const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
-              const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
+              const windowRegex =
+                controller.win32?.window_regex || controller.gamepad?.window_regex;
               const windows = await maaService.findWin32Windows(classRegex, windowRegex);
               const matchedWindow = windows.find((w) => w.window_name === savedDevice.windowName);
               if (!matchedWindow) {
@@ -525,7 +526,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
               targetType = 'device';
             } else if (controllerType === 'Win32' || controllerType === 'Gamepad') {
               const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
-              const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
+              const windowRegex =
+                controller.win32?.window_regex || controller.gamepad?.window_regex;
               const windows = await maaService.findWin32Windows(classRegex, windowRegex);
               if (windows.length === 0) {
                 log.warn(`实例 ${targetInstance.name}: 未搜索到任何窗口`);
