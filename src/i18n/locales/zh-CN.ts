@@ -205,6 +205,8 @@ export default {
       deviceNotFound: '未找到设备: {{name}}',
       windowNotFound: '未找到窗口: {{name}}',
       noSavedDevice: '没有保存的设备配置',
+      noDeviceFound: '未搜索到任何设备',
+      noWindowFound: '未搜索到任何窗口',
       connectFailed: '自动连接失败',
       resourceFailed: '资源加载失败',
       startFailed: '任务启动失败',

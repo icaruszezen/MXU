@@ -210,6 +210,8 @@ export default {
       deviceNotFound: 'デバイスが見つかりません: {{name}}',
       windowNotFound: 'ウィンドウが見つかりません: {{name}}',
       noSavedDevice: '保存されたデバイス設定がありません',
+      noDeviceFound: 'デバイスが見つかりませんでした',
+      noWindowFound: 'ウィンドウが見つかりませんでした',
       connectFailed: '自動接続に失敗しました',
       resourceFailed: 'リソースの読み込みに失敗しました',
       startFailed: 'タスクの開始に失敗しました',

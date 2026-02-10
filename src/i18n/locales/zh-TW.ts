@@ -204,6 +204,8 @@ export default {
       deviceNotFound: '未找到裝置: {{name}}',
       windowNotFound: '未找到視窗: {{name}}',
       noSavedDevice: '沒有儲存的裝置設定',
+      noDeviceFound: '未搜尋到任何裝置',
+      noWindowFound: '未搜尋到任何視窗',
       connectFailed: '自動連接失敗',
       resourceFailed: '資源載入失敗',
       startFailed: '任務啟動失敗',

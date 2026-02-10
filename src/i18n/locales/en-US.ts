@@ -211,6 +211,8 @@ export default {
       deviceNotFound: 'Device not found: {{name}}',
       windowNotFound: 'Window not found: {{name}}',
       noSavedDevice: 'No saved device configuration',
+      noDeviceFound: 'No devices found',
+      noWindowFound: 'No windows found',
       connectFailed: 'Auto connect failed',
       resourceFailed: 'Resource loading failed',
       startFailed: 'Failed to start tasks',

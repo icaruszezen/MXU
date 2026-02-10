@@ -106,36 +106,22 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
   const langKey = getInterfaceLangKey(language);
   const translations = interfaceTranslations[langKey];
 
-  // 检查是否可以运行
   const instanceId = instance?.id || '';
 
   // 任务队列状态（从 store 获取）
   const pendingTaskIds = instancePendingTaskIds[instanceId] || [];
   const currentTaskIndex = instanceCurrentTaskIndex[instanceId] || 0;
   const runningInstanceIdRef = useRef<string | null>(null);
-  const isConnected = instanceConnectionStatus[instanceId] === 'Connected';
-  const isResourceLoaded = instanceResourceLoaded[instanceId] || false;
 
-  // 检查是否有保存的设备和资源配置
+  // 检查是否有保存的设备和资源配置（用于权限检查等）
   const currentControllerName =
     selectedController[instanceId] || projectInterface?.controller[0]?.name;
-  const currentResourceName = selectedResource[instanceId] || projectInterface?.resource[0]?.name;
   const currentController = projectInterface?.controller.find(
     (c) => c.name === currentControllerName,
   );
-  const currentResource = projectInterface?.resource.find((r) => r.name === currentResourceName);
-  const savedDevice = instance?.savedDevice;
 
-  // 判断是否有保存的设备配置可以自动连接
-  const hasSavedDeviceConfig = Boolean(
-    savedDevice &&
-    (savedDevice.adbDeviceName || savedDevice.windowName || savedDevice.playcoverAddress),
-  );
-
-  // 允许在有保存配置时启动（即使未连接）
-  const canRun =
-    (isConnected && isResourceLoaded && tasks.some((t) => t.enabled)) ||
-    (hasSavedDeviceConfig && currentResource && tasks.some((t) => t.enabled));
+  // 只要有启用的任务就可以运行（连接和资源加载会在 startTasksForInstance 中自动处理）
+  const canRun = tasks.some((t) => t.enabled);
 
   // 监听任务完成回调
   useEffect(() => {
@@ -329,12 +315,14 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
       const isTargetConnected = instanceConnectionStatus[targetId] === 'Connected';
       const isTargetResourceLoaded = instanceResourceLoaded[targetId] || false;
 
-      // 判断是否可以运行
+      // 判断是否可以运行：已连接+资源已加载、有保存设备+资源、或有控制器+资源（自动搜索）
       const canStartTask =
-        (isTargetConnected && isTargetResourceLoaded) || (hasSavedDevice && resource);
+        (isTargetConnected && isTargetResourceLoaded) ||
+        (hasSavedDevice && resource) ||
+        (controller && resource);
 
       if (!canStartTask) {
-        log.warn(`实例 ${targetInstance.name} 无法启动：未连接且没有保存的设备配置`);
+        log.warn(`实例 ${targetInstance.name} 无法启动：未连接且没有可用的控制器或资源配置`);
         return false;
       }
 
@@ -438,9 +426,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
         }
 
         // 如果未连接，尝试自动连接
-        if (!isTargetConnected && hasSavedDevice && controller && savedDevice) {
-          log.info(`实例 ${targetInstance.name}: 自动连接设备...`);
-          onPhaseChange?.('searching');
+        if (!isTargetConnected && controller) {
+          const controllerType = controller.type;
 
           await ensureMaaInitialized();
           await maaService.createInstance(targetId).catch((err) => {
@@ -448,54 +435,133 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           });
 
           let config: ControllerConfig | null = null;
-          const controllerType = controller.type;
+          let deviceName = '';
+          let targetType: 'device' | 'window' = 'device';
 
-          if (controllerType === 'Adb' && savedDevice.adbDeviceName) {
-            const devices = await maaService.findAdbDevices();
-            const matchedDevice = devices.find((d) => d.name === savedDevice.adbDeviceName);
-            if (!matchedDevice) {
-              log.warn(`实例 ${targetInstance.name}: 未找到设备 ${savedDevice.adbDeviceName}`);
+          if (hasSavedDevice && savedDevice) {
+            // 有保存的设备配置，按名称精确匹配
+            log.info(`实例 ${targetInstance.name}: 自动连接已保存的设备...`);
+            onPhaseChange?.('searching');
+
+            if (controllerType === 'Adb' && savedDevice.adbDeviceName) {
+              const devices = await maaService.findAdbDevices();
+              const matchedDevice = devices.find((d) => d.name === savedDevice.adbDeviceName);
+              if (!matchedDevice) {
+                log.warn(`实例 ${targetInstance.name}: 未找到设备 ${savedDevice.adbDeviceName}`);
+                return false;
+              }
+              config = {
+                type: 'Adb',
+                adb_path: matchedDevice.adb_path,
+                address: matchedDevice.address,
+                screencap_methods: matchedDevice.screencap_methods,
+                input_methods: matchedDevice.input_methods,
+                config: matchedDevice.config,
+              };
+              deviceName = matchedDevice.name || matchedDevice.address;
+              targetType = 'device';
+            } else if (
+              (controllerType === 'Win32' || controllerType === 'Gamepad') &&
+              savedDevice.windowName
+            ) {
+              const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
+              const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
+              const windows = await maaService.findWin32Windows(classRegex, windowRegex);
+              const matchedWindow = windows.find((w) => w.window_name === savedDevice.windowName);
+              if (!matchedWindow) {
+                log.warn(`实例 ${targetInstance.name}: 未找到窗口 ${savedDevice.windowName}`);
+                return false;
+              }
+              if (controllerType === 'Win32') {
+                config = {
+                  type: 'Win32',
+                  handle: matchedWindow.handle,
+                  screencap_method: parseWin32ScreencapMethod(controller.win32?.screencap || ''),
+                  mouse_method: parseWin32InputMethod(controller.win32?.mouse || ''),
+                  keyboard_method: parseWin32InputMethod(controller.win32?.keyboard || ''),
+                };
+              } else {
+                config = {
+                  type: 'Gamepad',
+                  handle: matchedWindow.handle,
+                };
+              }
+              deviceName = matchedWindow.window_name || matchedWindow.class_name;
+              targetType = 'window';
+            } else if (controllerType === 'PlayCover' && savedDevice.playcoverAddress) {
+              config = {
+                type: 'PlayCover',
+                address: savedDevice.playcoverAddress,
+              };
+              deviceName = savedDevice.playcoverAddress;
+              targetType = 'device';
+            }
+          } else {
+            // 没有保存的设备配置，自动搜索并连接第一个结果
+            log.info(`实例 ${targetInstance.name}: 自动搜索设备并连接...`);
+            onPhaseChange?.('searching');
+
+            if (controllerType === 'Adb') {
+              const devices = await maaService.findAdbDevices();
+              if (devices.length === 0) {
+                log.warn(`实例 ${targetInstance.name}: 未搜索到任何 ADB 设备`);
+                addLog(targetId, {
+                  type: 'error',
+                  message: t('taskList.autoConnect.noDeviceFound'),
+                });
+                return false;
+              }
+              const firstDevice = devices[0];
+              log.info(`实例 ${targetInstance.name}: 自动选择设备: ${firstDevice.name}`);
+              config = {
+                type: 'Adb',
+                adb_path: firstDevice.adb_path,
+                address: firstDevice.address,
+                screencap_methods: firstDevice.screencap_methods,
+                input_methods: firstDevice.input_methods,
+                config: firstDevice.config,
+              };
+              deviceName = firstDevice.name || firstDevice.address;
+              targetType = 'device';
+            } else if (controllerType === 'Win32' || controllerType === 'Gamepad') {
+              const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
+              const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
+              const windows = await maaService.findWin32Windows(classRegex, windowRegex);
+              if (windows.length === 0) {
+                log.warn(`实例 ${targetInstance.name}: 未搜索到任何窗口`);
+                addLog(targetId, {
+                  type: 'error',
+                  message: t('taskList.autoConnect.noWindowFound'),
+                });
+                return false;
+              }
+              const firstWindow = windows[0];
+              log.info(`实例 ${targetInstance.name}: 自动选择窗口: ${firstWindow.window_name}`);
+              if (controllerType === 'Win32') {
+                config = {
+                  type: 'Win32',
+                  handle: firstWindow.handle,
+                  screencap_method: parseWin32ScreencapMethod(controller.win32?.screencap || ''),
+                  mouse_method: parseWin32InputMethod(controller.win32?.mouse || ''),
+                  keyboard_method: parseWin32InputMethod(controller.win32?.keyboard || ''),
+                };
+              } else {
+                config = {
+                  type: 'Gamepad',
+                  handle: firstWindow.handle,
+                };
+              }
+              deviceName = firstWindow.window_name || firstWindow.class_name;
+              targetType = 'window';
+            } else if (controllerType === 'PlayCover') {
+              // PlayCover 没有搜索功能，无法自动连接
+              log.warn(`实例 ${targetInstance.name}: PlayCover 控制器需要手动配置地址`);
+              addLog(targetId, {
+                type: 'error',
+                message: t('taskList.autoConnect.needConfig'),
+              });
               return false;
             }
-            config = {
-              type: 'Adb',
-              adb_path: matchedDevice.adb_path,
-              address: matchedDevice.address,
-              screencap_methods: matchedDevice.screencap_methods,
-              input_methods: matchedDevice.input_methods,
-              config: matchedDevice.config,
-            };
-          } else if (
-            (controllerType === 'Win32' || controllerType === 'Gamepad') &&
-            savedDevice.windowName
-          ) {
-            const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
-            const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
-            const windows = await maaService.findWin32Windows(classRegex, windowRegex);
-            const matchedWindow = windows.find((w) => w.window_name === savedDevice.windowName);
-            if (!matchedWindow) {
-              log.warn(`实例 ${targetInstance.name}: 未找到窗口 ${savedDevice.windowName}`);
-              return false;
-            }
-            if (controllerType === 'Win32') {
-              config = {
-                type: 'Win32',
-                handle: matchedWindow.handle,
-                screencap_method: parseWin32ScreencapMethod(controller.win32?.screencap || ''),
-                mouse_method: parseWin32InputMethod(controller.win32?.mouse || ''),
-                keyboard_method: parseWin32InputMethod(controller.win32?.keyboard || ''),
-              };
-            } else {
-              config = {
-                type: 'Gamepad',
-                handle: matchedWindow.handle,
-              };
-            }
-          } else if (controllerType === 'PlayCover' && savedDevice.playcoverAddress) {
-            config = {
-              type: 'PlayCover',
-              address: savedDevice.playcoverAddress,
-            };
           }
 
           if (!config) {
@@ -519,18 +585,6 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           const ctrlId = await maaService.connectController(targetId, config);
 
           // 注册 ctrl_id 与设备名/类型的映射
-          let deviceName = '';
-          let targetType: 'device' | 'window' = 'device';
-          if (savedDevice?.adbDeviceName) {
-            deviceName = savedDevice.adbDeviceName;
-            targetType = 'device';
-          } else if (savedDevice?.windowName) {
-            deviceName = savedDevice.windowName;
-            targetType = 'window';
-          } else if (savedDevice?.playcoverAddress) {
-            deviceName = savedDevice.playcoverAddress;
-            targetType = 'device';
-          }
           registerCtrlIdName(ctrlId, deviceName, targetType);
 
           // 等待初始回调收集器设置完成
@@ -986,7 +1040,7 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
     } else {
       // 启动任务
       if (!canRun) {
-        log.warn('无法运行任务：未连接或资源未加载，且没有保存的设备配置');
+        log.warn('无法运行任务：没有启用的任务');
         return;
       }
 
@@ -1102,8 +1156,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instance?.id, instance?.isRunning]);
 
-  const isDisabled =
-    tasks.length === 0 || !tasks.some((t) => t.enabled) || (!canRun && !instance?.isRunning);
+  // canRun 只检查是否有启用的任务；运行中时按钮用于停止，不应禁用
+  const isDisabled = (tasks.length === 0 || !canRun) && !instance?.isRunning;
 
   // 获取启动按钮的文本
   const getStartButtonText = () => {
@@ -1126,12 +1180,6 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
   const getButtonTitle = () => {
     if (autoConnectError) {
       return autoConnectError;
-    }
-    if (!canRun && !instance?.isRunning) {
-      if (hasSavedDeviceConfig) {
-        return undefined; // 有保存配置，可以自动连接
-      }
-      return t('taskList.autoConnect.needConfig');
     }
     return undefined;
   };
