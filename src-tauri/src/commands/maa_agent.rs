@@ -32,10 +32,7 @@ async fn start_single_agent(
     cwd: &str,
     tcp_compat_mode: bool,
 ) -> Result<(SendPtr<MaaAgentClient>, std::process::Child), String> {
-    info!(
-        "[agent#{}] Starting agent: {:?}",
-        agent_index, agent
-    );
+    info!("[agent#{}] Starting agent: {:?}", agent_index, agent);
 
     // 创建 AgentClient 并获取 socket_id
     debug!(
@@ -92,10 +89,7 @@ async fn start_single_agent(
                 "[agent#{}] Failed to create agent client (null pointer)",
                 agent_index
             );
-            return Err(format!(
-                "Failed to create agent client #{}",
-                agent_index
-            ));
+            return Err(format!("Failed to create agent client #{}", agent_index));
         }
 
         // 绑定资源
@@ -264,8 +258,7 @@ async fn start_single_agent(
                         let line = String::from_utf8_lossy(&buffer);
                         if let Ok(mut guard) = log_file_clone.lock() {
                             if let Some(ref mut file) = *guard {
-                                let timestamp =
-                                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+                                let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
                                 let _ = writeln!(file, "{} [stdout] {}", timestamp, line);
                             }
                         }
@@ -303,8 +296,7 @@ async fn start_single_agent(
                         let line = String::from_utf8_lossy(&buffer);
                         if let Ok(mut guard) = log_file_clone.lock() {
                             if let Some(ref mut file) = *guard {
-                                let timestamp =
-                                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+                                let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
                                 let _ = writeln!(file, "{} [stderr] {}", timestamp, line);
                             }
                         }
@@ -395,17 +387,12 @@ async fn start_single_agent(
                 .instances
                 .lock()
                 .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-            let instance = instances
-                .get(instance_id)
-                .ok_or("Instance not found")?;
+            let instance = instances.get(instance_id).ok_or("Instance not found")?;
             instance.controller.ok_or("Controller not found")?
         };
 
         let res_result = unsafe {
-            (lib.maa_agent_client_register_resource_sink)(
-                agent_client.as_ptr(),
-                resource.as_ptr(),
-            )
+            (lib.maa_agent_client_register_resource_sink)(agent_client.as_ptr(), resource.as_ptr())
         };
         let ctrl_result = unsafe {
             (lib.maa_agent_client_register_controller_sink)(agent_client.as_ptr(), controller)
@@ -525,10 +512,7 @@ pub async fn maa_start_tasks(
             debug!("[start_tasks] Agent configs list is empty, skipping agent setup");
             false
         } else {
-            info!(
-                "[start_tasks] Starting {} agent(s)...",
-                agents.len()
-            );
+            info!("[start_tasks] Starting {} agent(s)...", agents.len());
 
             // 用于收集所有成功启动的 agent，失败时需要回滚清理
             let mut started_clients: Vec<SendPtr<MaaAgentClient>> = Vec::new();

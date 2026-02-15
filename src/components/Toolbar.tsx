@@ -410,19 +410,14 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
                 });
 
                 // 设备就绪后额外延迟，等待应用完全初始化
-                const delaySec =
-                  useAppStore.getState().preActionConnectDelaySec ?? 5;
+                const delaySec = useAppStore.getState().preActionConnectDelaySec ?? 5;
                 if (delaySec > 0) {
-                  log.info(
-                    `实例 ${targetInstance.name}: 等待 ${delaySec} 秒后再连接...`,
-                  );
+                  log.info(`实例 ${targetInstance.name}: 等待 ${delaySec} 秒后再连接...`);
                   addLog(targetId, {
                     type: 'info',
                     message: t('action.preActionConnectDelay', { seconds: delaySec }),
                   });
-                  await new Promise((resolve) =>
-                    setTimeout(resolve, delaySec * 1000),
-                  );
+                  await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
                 }
               } else {
                 log.warn(`实例 ${targetInstance.name}: 等待${isWindowType ? '窗口' : '设备'}超时`);

@@ -134,10 +134,7 @@ export function TitleBar() {
             <Box className="w-4 h-4 text-text-secondary" />
           )}
         </div>
-        <span
-          className="text-xs text-text-secondary px-2 truncate max-w-lg"
-          data-tauri-drag-region
-        >
+        <span className="text-xs text-text-secondary px-2 truncate max-w-lg" data-tauri-drag-region>
           {getWindowTitle()}
         </span>
       </div>
