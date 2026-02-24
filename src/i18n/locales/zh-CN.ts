@@ -215,6 +215,10 @@ export default {
       noDeviceFound: '未搜索到任何设备',
       noWindowFound: '未搜索到任何窗口',
       connectFailed: '自动连接失败',
+      autoSelectedDevice:
+        '尚未手动选择过设备，已自动匹配到「{{name}}」。如需更换，请在连接设置中手动选择，下次将记住您的选择。',
+      autoSelectedWindow:
+        '尚未手动选择过窗口，已自动匹配到「{{name}}」。如需更换，请在连接设置中手动选择，下次将记住您的选择。',
       resourceFailed: '资源加载失败',
       startFailed: '任务启动失败',
       needConfig: '请先连接设备并加载资源，或在连接面板保存设备配置',

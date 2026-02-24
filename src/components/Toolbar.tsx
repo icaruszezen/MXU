@@ -436,6 +436,33 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
                   type: 'success',
                   message: isWindowType ? t('action.windowReady') : t('action.deviceReady'),
                 });
+                // 如果没有 savedDevice，说明是自动匹配的，需要给用户提示
+                if (!savedDevice?.windowName && !savedDevice?.adbDeviceName && !savedDevice?.playcoverAddress) {
+                  // 尝试找出实际匹配到的名称用于提示
+                  try {
+                    if (controllerType === 'Adb') {
+                      const devices = await maaService.findAdbDevices();
+                      if (devices.length > 0) {
+                        addLog(targetId, {
+                          type: 'info',
+                          message: t('taskList.autoConnect.autoSelectedDevice', { name: devices[0].name || devices[0].address }),
+                        });
+                      }
+                    } else if (controllerType === 'Win32' || controllerType === 'Gamepad') {
+                      const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
+                      const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
+                      const windows = await maaService.findWin32Windows(classRegex, windowRegex);
+                      if (windows.length > 0) {
+                        addLog(targetId, {
+                          type: 'info',
+                          message: t('taskList.autoConnect.autoSelectedWindow', { name: windows[0].window_name || windows[0].class_name }),
+                        });
+                      }
+                    }
+                  } catch {
+                    // 忽略二次搜索错误
+                  }
+                }
 
                 // 设备就绪后额外延迟，等待应用完全初始化
                 const delaySec = useAppStore.getState().preActionConnectDelaySec ?? 5;
@@ -556,6 +583,13 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
               }
               const firstDevice = devices[0];
               log.info(`实例 ${targetInstance.name}: 自动选择设备: ${firstDevice.name}`);
+              // 没有保存过设备，给出首次自动匹配提示
+              addLog(targetId, {
+                type: 'info',
+                message: t('taskList.autoConnect.autoSelectedDevice', {
+                  name: firstDevice.name || firstDevice.address,
+                }),
+              });
               config = {
                 type: 'Adb',
                 adb_path: firstDevice.adb_path,
@@ -581,6 +615,13 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
               }
               const firstWindow = windows[0];
               log.info(`实例 ${targetInstance.name}: 自动选择窗口: ${firstWindow.window_name}`);
+              // 没有保存过设备，给出首次自动匹配提示
+              addLog(targetId, {
+                type: 'info',
+                message: t('taskList.autoConnect.autoSelectedWindow', {
+                  name: firstWindow.window_name || firstWindow.class_name,
+                }),
+              });
               if (controllerType === 'Win32') {
                 config = {
                   type: 'Win32',

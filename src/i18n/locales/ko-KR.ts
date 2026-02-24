@@ -219,6 +219,10 @@ export default {
       noDeviceFound: '기기를 찾을 수 없습니다',
       noWindowFound: '창을 찾을 수 없습니다',
       connectFailed: '자동 연결에 실패했습니다',
+      autoSelectedDevice:
+        '기기가 설정되지 않아 「{{name}}」을(를) 자동으로 선택했습니다. 변경하려면 연결 설정에서 수동으로 선택하세요. 다음 번에는 선택 내용이 저장됩니다.',
+      autoSelectedWindow:
+        '창이 설정되지 않아 「{{name}}」을(를) 자동으로 선택했습니다. 변경하려면 연결 설정에서 수동으로 선택하세요. 다음 번에는 선택 내용이 저장됩니다.',
       resourceFailed: '리소스 로딩에 실패했습니다',
       startFailed: '작업 시작에 실패했습니다',
       needConfig: '먼저 기기를 연결하고 리소스를 로드하거나 연결 패널에서 기기 설정을 저장하세요',

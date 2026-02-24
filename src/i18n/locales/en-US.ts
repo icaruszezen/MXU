@@ -220,6 +220,10 @@ export default {
       noDeviceFound: 'No devices found',
       noWindowFound: 'No windows found',
       connectFailed: 'Auto connect failed',
+      autoSelectedDevice:
+        'No device was previously selected. Automatically matched "{{name}}". To change, select manually in Connection Settings — your choice will be remembered next time.',
+      autoSelectedWindow:
+        'No window was previously selected. Automatically matched "{{name}}". To change, select manually in Connection Settings — your choice will be remembered next time.',
       resourceFailed: 'Resource loading failed',
       startFailed: 'Failed to start tasks',
       needConfig:

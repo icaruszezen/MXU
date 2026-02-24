@@ -214,6 +214,10 @@ export default {
       noDeviceFound: '未搜尋到任何裝置',
       noWindowFound: '未搜尋到任何視窗',
       connectFailed: '自動連接失敗',
+      autoSelectedDevice:
+        '尚未手動選擇過裝置，已自動匹配到「{{name}}」。如需更換，請在連接設定中手動選擇，下次將記住您的選擇。',
+      autoSelectedWindow:
+        '尚未手動選擇過視窗，已自動匹配到「{{name}}」。如需更換，請在連接設定中手動選擇，下次將記住您的選擇。',
       resourceFailed: '資源載入失敗',
       startFailed: '任務啟動失敗',
       needConfig: '請先連接裝置並載入資源，或在連接面板儲存裝置設定',

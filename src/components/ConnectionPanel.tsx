@@ -59,6 +59,7 @@ export function ConnectionPanel() {
     registerCtrlIdName,
     registerResIdName,
     registerResBatch,
+    addLog,
   } = useAppStore();
 
   // 获取当前活动实例
@@ -386,6 +387,15 @@ export function ConnectionPanel() {
         } else if (devices.length > 0) {
           // 没有保存设备时自动选择第一个
           autoSelected = devices[0];
+          // 给出首次自动匹配提示
+          if (instanceId) {
+            addLog(instanceId, {
+              type: 'info',
+              message: t('taskList.autoConnect.autoSelectedDevice', {
+                name: autoSelected.name || autoSelected.address,
+              }),
+            });
+          }
         }
 
         if (autoSelected) {
@@ -412,6 +422,15 @@ export function ConnectionPanel() {
         } else if (windows.length > 0) {
           // 没有保存窗口时自动选择第一个
           autoSelected = windows[0];
+          // 给出首次自动匹配提示
+          if (instanceId) {
+            addLog(instanceId, {
+              type: 'info',
+              message: t('taskList.autoConnect.autoSelectedWindow', {
+                name: autoSelected.window_name || autoSelected.class_name,
+              }),
+            });
+          }
         }
 
         if (autoSelected) {
