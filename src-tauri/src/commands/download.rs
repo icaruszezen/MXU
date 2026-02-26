@@ -7,6 +7,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use tauri::Emitter;
 
+use super::types::GitHubRelease;
+use reqwest::header::{ACCEPT, USER_AGENT, AUTHORIZATION};
+
 use super::types::{DownloadProgressEvent, DownloadResult};
 use super::update::move_to_old_folder;
 use super::utils::build_user_agent;
@@ -15,6 +18,91 @@ use super::utils::build_user_agent;
 static DOWNLOAD_CANCELLED: AtomicBool = AtomicBool::new(false);
 /// 当前下载的 session ID，用于区分不同的下载任务
 static CURRENT_DOWNLOAD_SESSION: AtomicU64 = AtomicU64::new(0);
+
+/// 根据版本号获取 GitHub Release URL
+///
+/// 使用 GitHub API 获取指定版本的 Release 信息，支持使用 GitHub PAT 和代理
+/// 解析 GitHub API 返回的 JSON 数据，找到与 target_version 匹配的 release，并返回 URL
+#[tauri::command]
+pub async fn get_github_release_by_version(
+    owner: String,
+    repo: String,
+    target_version: String,
+    github_pat: Option<String>,
+    proxy_url: Option<String>,
+) -> Result<Option<GitHubRelease>, String> {
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/releases",
+        owner, repo
+    );
+
+    // 构造请求头
+    let mut client_builder = reqwest::Client::builder()
+        .user_agent("mxu")
+        .timeout(std::time::Duration::from_secs(10))
+        .connect_timeout(std::time::Duration::from_secs(3));
+
+    // 添加代理配置（如果提供）
+    if let Some(ref proxy) = proxy_url {
+        if !proxy.is_empty() {
+            info!("[检查更新] 使用代理: {}", proxy);
+            info!("[检查更新] 目标: {}", url);
+            let reqwest_proxy = reqwest::Proxy::all(proxy).map_err(|e| {
+                error!("代理配置失败: {} (代理地址: {})", e, proxy);
+                format!(
+                    "代理配置失败: {}。请检查代理格式是否正确（支持 http:// 或 socks5://）",
+                    e
+                )
+            })?;
+            client_builder = client_builder.proxy(reqwest_proxy);
+        }
+    }
+
+    let client = client_builder
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
+    let mut request = client
+        .get(&url)
+        .header(ACCEPT, "application/vnd.github.v3+json")
+        .header(USER_AGENT, "mxu");
+
+    // 添加 PAT 认证（如果提供）
+    if let Some(pat) = github_pat {
+        if !pat.trim().is_empty() {
+            request = request.header(
+                AUTHORIZATION,
+                format!("token {}", pat.trim()),
+            );
+        }
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("请求失败: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("GitHub API 错误: {}", response.status()));
+    }
+
+    let releases: Vec<GitHubRelease> = response
+        .json()
+        .await
+        .map_err(|e| format!("解析 JSON 失败: {}", e))?;
+
+    let normalize = |v: &str| v.trim_start_matches(|c| c == 'v' || c == 'V').to_lowercase();
+    let target_normalized = normalize(&target_version);
+
+    for release in releases {
+        if normalize(&release.tag_name) == target_normalized {
+            info!("找到匹配的 Release: {} (tag: {})", release.name, release.tag_name);
+            return Ok(Some(release));
+        }
+    }
+    warn!("未找到匹配的 Release: target_version={}", target_version);
+    Ok(None)
+}
 
 /// 流式下载文件，支持进度回调和取消
 ///
