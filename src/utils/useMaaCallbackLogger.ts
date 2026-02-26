@@ -326,7 +326,11 @@ function handleCallback(
           switch (channel) {
             case 'log':
               if (!hasImagePlaceholder) {
-                addLog(instanceId, { type: 'focus', message: resolved.message, html: resolved.html });
+                addLog(instanceId, {
+                  type: 'focus',
+                  message: resolved.message,
+                  html: resolved.html,
+                });
               }
               break;
             case 'toast':

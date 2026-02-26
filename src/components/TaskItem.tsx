@@ -430,11 +430,24 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
     }
 
     // 生成新的 pipeline override 并调用后端
-    const pipelineOverride = generateTaskPipelineOverride(task, projectInterface, currentControllerName, currentResourceName);
+    const pipelineOverride = generateTaskPipelineOverride(
+      task,
+      projectInterface,
+      currentControllerName,
+      currentResourceName,
+    );
     maaService.overridePipeline(instanceId, maaTaskId, pipelineOverride).catch((err) => {
       loggers.task.error('Failed to override pipeline:', err);
     });
-  }, [task.optionValues, taskRunStatus, instanceId, task.id, projectInterface, currentControllerName, currentResourceName]);
+  }, [
+    task.optionValues,
+    taskRunStatus,
+    instanceId,
+    task.id,
+    projectInterface,
+    currentControllerName,
+    currentResourceName,
+  ]);
 
   const { state: menuState, show: showMenu, hide: hideMenu } = useContextMenu();
 
@@ -551,7 +564,8 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
           }
         }
       } else if (optionDef.type === 'checkbox') {
-        const caseNames = optionValue?.type === 'checkbox' ? optionValue.caseNames : optionDef.default_case || [];
+        const caseNames =
+          optionValue?.type === 'checkbox' ? optionValue.caseNames : optionDef.default_case || [];
         previews.push({
           key: optionKey,
           label: optionLabel,

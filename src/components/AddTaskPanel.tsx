@@ -240,7 +240,12 @@ export function AddTaskPanel() {
         }
 
         // 构建 pipeline override
-        const pipelineOverride = generateTaskPipelineOverride(addedTask, projectInterface, selectedControllerName, selectedResourceName);
+        const pipelineOverride = generateTaskPipelineOverride(
+          addedTask,
+          projectInterface,
+          selectedControllerName,
+          selectedResourceName,
+        );
 
         log.info(`运行中追加特殊任务 ${specialTask.entry}, pipelineOverride:`, pipelineOverride);
 
@@ -305,7 +310,12 @@ export function AddTaskPanel() {
         }
 
         // 构建 pipeline override
-        const pipelineOverride = generateTaskPipelineOverride(addedTask, projectInterface, selectedControllerName, selectedResourceName);
+        const pipelineOverride = generateTaskPipelineOverride(
+          addedTask,
+          projectInterface,
+          selectedControllerName,
+          selectedResourceName,
+        );
 
         log.info('运行中追加任务:', task.entry, ', pipelineOverride:', pipelineOverride);
 

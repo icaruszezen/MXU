@@ -222,7 +222,12 @@ export const useAppStore = create<AppState>()(
 
       const newInstance: Instance = {
         id,
-        name: exactName && name ? name : name ? `${name} ${instanceNumber}` : `Config ${instanceNumber}`,
+        name:
+          exactName && name
+            ? name
+            : name
+              ? `${name} ${instanceNumber}`
+              : `Config ${instanceNumber}`,
         controllerName: defaultControllerNameValue,
         resourceName: defaultResourceNameValue,
         selectedTasks: defaultTasks,
@@ -460,7 +465,8 @@ export const useAppStore = create<AppState>()(
           optionValues[optionKey] = { type: 'checkbox', caseNames: [...defaultCases] };
         } else {
           // select 类型
-          const caseName = (optionDef.default_case as string | undefined) || optionDef.cases?.[0]?.name || '';
+          const caseName =
+            (optionDef.default_case as string | undefined) || optionDef.cases?.[0]?.name || '';
           optionValues[optionKey] = { type: 'select', caseName };
         }
       }

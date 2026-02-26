@@ -401,7 +401,8 @@ export function OptionEditor({
 
   // Checkbox 类型 (多选)
   if (optionDef.type === 'checkbox') {
-    const selectedCases = value?.type === 'checkbox' ? value.caseNames : optionDef.default_case || [];
+    const selectedCases =
+      value?.type === 'checkbox' ? value.caseNames : optionDef.default_case || [];
 
     return (
       <div

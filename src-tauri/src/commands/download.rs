@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::Emitter;
 
 use super::types::GitHubRelease;
-use reqwest::header::{ACCEPT, USER_AGENT, AUTHORIZATION};
+use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 
 use super::types::{DownloadProgressEvent, DownloadResult};
 use super::update::move_to_old_folder;
@@ -31,10 +31,7 @@ pub async fn get_github_release_by_version(
     github_pat: Option<String>,
     proxy_url: Option<String>,
 ) -> Result<Option<GitHubRelease>, String> {
-    let url = format!(
-        "https://api.github.com/repos/{}/{}/releases",
-        owner, repo
-    );
+    let url = format!("https://api.github.com/repos/{}/{}/releases", owner, repo);
 
     // 构造请求头
     let mut client_builder = reqwest::Client::builder()
@@ -70,10 +67,7 @@ pub async fn get_github_release_by_version(
     // 添加 PAT 认证（如果提供）
     if let Some(pat) = github_pat {
         if !pat.trim().is_empty() {
-            request = request.header(
-                AUTHORIZATION,
-                format!("token {}", pat.trim()),
-            );
+            request = request.header(AUTHORIZATION, format!("token {}", pat.trim()));
         }
     }
 
@@ -91,12 +85,18 @@ pub async fn get_github_release_by_version(
         .await
         .map_err(|e| format!("解析 JSON 失败: {}", e))?;
 
-    let normalize = |v: &str| v.trim_start_matches(|c| c == 'v' || c == 'V').to_lowercase();
+    let normalize = |v: &str| {
+        v.trim_start_matches(|c| c == 'v' || c == 'V')
+            .to_lowercase()
+    };
     let target_normalized = normalize(&target_version);
 
     for release in releases {
         if normalize(&release.tag_name) == target_normalized {
-            info!("找到匹配的 Release: {} (tag: {})", release.name, release.tag_name);
+            info!(
+                "找到匹配的 Release: {} (tag: {})",
+                release.name, release.tag_name
+            );
             return Ok(Some(release));
         }
     }

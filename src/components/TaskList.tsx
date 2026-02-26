@@ -40,13 +40,7 @@ import { useResolvedContent } from '@/services/contentResolver';
 import clsx from 'clsx';
 
 /** 单个预设卡片 */
-function PresetCard({
-  preset,
-  onApply,
-}: {
-  preset: PresetItem;
-  onApply: () => void;
-}) {
+function PresetCard({ preset, onApply }: { preset: PresetItem; onApply: () => void }) {
   const { resolveI18nText, language, basePath, interfaceTranslations } = useAppStore();
   const { t } = useTranslation();
   const langKey = getInterfaceLangKey(language);
@@ -431,16 +425,12 @@ export function TaskList() {
 
   const showPreAction = !!instance.preAction;
   const hasPresets =
-    (projectInterface?.preset?.length ?? 0) > 0 &&
-    !skippedPresetInstanceIds.has(instance.id);
+    (projectInterface?.preset?.length ?? 0) > 0 && !skippedPresetInstanceIds.has(instance.id);
 
   if (tasks.length === 0 && !showPreAction) {
     return (
       <>
-        <div
-          className="flex-1 overflow-y-auto"
-          onContextMenu={handleListContextMenu}
-        >
+        <div className="flex-1 overflow-y-auto" onContextMenu={handleListContextMenu}>
           {hasPresets ? (
             <PresetSelector instanceId={instance.id} />
           ) : (

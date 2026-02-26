@@ -36,7 +36,10 @@ const collectOptionOverrides = (
         overrides.push(caseDef.pipeline_override as Record<string, unknown>);
       }
     }
-  } else if ((optionValue.type === 'select' || optionValue.type === 'switch') && 'cases' in optionDef) {
+  } else if (
+    (optionValue.type === 'select' || optionValue.type === 'switch') &&
+    'cases' in optionDef
+  ) {
     let caseName: string;
     if (optionValue.type === 'switch') {
       const isChecked = optionValue.value;
@@ -127,7 +130,12 @@ export const generateTaskPipelineOverride = (
     // 1. 全局选项（优先级最低）
     if (projectInterface.global_option) {
       for (const optionKey of projectInterface.global_option) {
-        collectOptionOverrides(optionKey, selectedTask.optionValues, overrides, projectInterface.option);
+        collectOptionOverrides(
+          optionKey,
+          selectedTask.optionValues,
+          overrides,
+          projectInterface.option,
+        );
       }
     }
 
@@ -136,7 +144,12 @@ export const generateTaskPipelineOverride = (
       const resourceDef = projectInterface.resource.find((r) => r.name === resourceName);
       if (resourceDef?.option) {
         for (const optionKey of resourceDef.option) {
-          collectOptionOverrides(optionKey, selectedTask.optionValues, overrides, projectInterface.option);
+          collectOptionOverrides(
+            optionKey,
+            selectedTask.optionValues,
+            overrides,
+            projectInterface.option,
+          );
         }
       }
     }
@@ -146,7 +159,12 @@ export const generateTaskPipelineOverride = (
       const controllerDef = projectInterface.controller.find((c) => c.name === controllerName);
       if (controllerDef?.option) {
         for (const optionKey of controllerDef.option) {
-          collectOptionOverrides(optionKey, selectedTask.optionValues, overrides, projectInterface.option);
+          collectOptionOverrides(
+            optionKey,
+            selectedTask.optionValues,
+            overrides,
+            projectInterface.option,
+          );
         }
       }
     }
@@ -154,7 +172,12 @@ export const generateTaskPipelineOverride = (
     // 4. 任务级选项（优先级最高）
     if (taskDef.option) {
       for (const optionKey of taskDef.option) {
-        collectOptionOverrides(optionKey, selectedTask.optionValues, overrides, projectInterface.option);
+        collectOptionOverrides(
+          optionKey,
+          selectedTask.optionValues,
+          overrides,
+          projectInterface.option,
+        );
       }
     }
   }
