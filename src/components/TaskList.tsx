@@ -438,17 +438,17 @@ export function TaskList() {
     return (
       <>
         <div
-          className="flex-1 flex flex-col items-center justify-center text-text-muted gap-3 overflow-y-auto"
+          className="flex-1 overflow-y-auto"
           onContextMenu={handleListContextMenu}
         >
           {hasPresets ? (
             <PresetSelector instanceId={instance.id} />
           ) : (
-            <>
+            <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3">
               <ListTodo className="w-12 h-12 opacity-30" />
               <p className="text-sm">{t('taskList.noTasks')}</p>
               <p className="text-xs">{t('taskList.dragToReorder')}</p>
-            </>
+            </div>
           )}
         </div>
         {menuState.isOpen && (
@@ -473,17 +473,15 @@ export function TaskList() {
             />
           )}
 
-          <div className="flex-1 flex flex-col items-center justify-center text-text-muted gap-3 min-h-[120px]">
-            {hasPresets ? (
-              <PresetSelector instanceId={instance.id} />
-            ) : (
-              <>
-                <ListTodo className="w-12 h-12 opacity-30" />
-                <p className="text-sm">{t('taskList.noTasks')}</p>
-                <p className="text-xs">{t('taskList.dragToReorder')}</p>
-              </>
-            )}
-          </div>
+          {hasPresets ? (
+            <PresetSelector instanceId={instance.id} />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-text-muted gap-3 min-h-[120px]">
+              <ListTodo className="w-12 h-12 opacity-30" />
+              <p className="text-sm">{t('taskList.noTasks')}</p>
+              <p className="text-xs">{t('taskList.dragToReorder')}</p>
+            </div>
+          )}
         </div>
         {menuState.isOpen && (
           <ContextMenu items={menuState.items} position={menuState.position} onClose={hideMenu} />
