@@ -218,7 +218,7 @@ export function LogsPanel() {
                   <span className="text-text-muted flex-shrink-0">
                     [{log.timestamp.toLocaleTimeString()}]
                   </span>
-                  <span className="break-all">
+                  <span className="break-all whitespace-pre-wrap">
                     {getLogPrefix(log.type)}
                     {log.message}
                   </span>

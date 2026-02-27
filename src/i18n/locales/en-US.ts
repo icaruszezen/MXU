@@ -354,6 +354,7 @@ export default {
     lastSelected: 'Last selected · Click to search',
     savedDeviceNotFound: 'Previous device not found, please check connection or select another',
     savedWindowNotFound: 'Previous window not found, please check connection or select another',
+    connectedLog: 'Connected controller [{{name}}]',
   },
 
   // Resource

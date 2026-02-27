@@ -353,6 +353,7 @@ export default {
     savedDeviceNotFound: '이전 기기를 찾을 수 없습니다. 연결을 확인하거나 다른 기기를 선택하세요',
     savedWindowNotFound:
       '이전 윈도우를 찾을 수 없습니다. 연결을 확인하거나 다른 윈도우를 선택하세요',
+    connectedLog: '컨트롤러에 연결되었습니다 [{{name}}]',
   },
 
   // 리소스

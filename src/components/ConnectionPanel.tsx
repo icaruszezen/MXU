@@ -465,6 +465,16 @@ export function ConnectionPanel() {
       setIsConnected(true);
       setInstanceConnectionStatus(instanceId, 'Connected');
       setIsConnecting(false);
+      const controllerDisplayName = currentController
+        ? getControllerDisplayName(currentController)
+        : '';
+      const desc = currentController
+        ? resolveI18nText(currentController.description, translations)
+        : '';
+      const logMessage = desc
+        ? t('controller.connectedLog', { name: controllerDisplayName }) + '\n' + desc
+        : t('controller.connectedLog', { name: controllerDisplayName });
+      addLog(instanceId, { type: 'info', message: logMessage });
     } else {
       setDeviceError(t('controller.connectionFailed'));
       setIsConnected(false);
@@ -1073,63 +1083,67 @@ export function ConnectionPanel() {
                   <span>{t('controller.title')}</span>
                 </div>
                 <div className="flex flex-wrap gap-1 justify-end">
-                  {controllers.map((controller) => (
-                    <button
-                      key={controller.name}
-                      onClick={async () => {
-                        // 点击当前已选中的控制器，不做任何操作
-                        if (currentControllerName === controller.name) return;
+                  {controllers.map((controller) => {
+                    const desc = resolveI18nText(controller.description, translations);
+                    return (
+                      <button
+                        key={controller.name}
+                        title={desc || undefined}
+                        onClick={async () => {
+                          // 点击当前已选中的控制器，不做任何操作
+                          if (currentControllerName === controller.name) return;
 
-                        // 切换控制器：销毁实例（清除 tasker）并重新创建
-                        // 保留资源加载状态（资源在 Rust 后端独立存储）
-                        await maaService.destroyInstance(instanceId).catch(() => {});
-                        await maaService.createInstance(instanceId).catch(() => {});
+                          // 切换控制器：销毁实例（清除 tasker）并重新创建
+                          // 保留资源加载状态（资源在 Rust 后端独立存储）
+                          await maaService.destroyInstance(instanceId).catch(() => {});
+                          await maaService.createInstance(instanceId).catch(() => {});
 
-                        setSelectedController(instanceId, controller.name);
-                        setIsConnected(false);
-                        setInstanceConnectionStatus(instanceId, 'Disconnected');
-                        setSelectedAdbDevice(null);
-                        setSelectedWindow(null);
+                          setSelectedController(instanceId, controller.name);
+                          setIsConnected(false);
+                          setInstanceConnectionStatus(instanceId, 'Disconnected');
+                          setSelectedAdbDevice(null);
+                          setSelectedWindow(null);
 
-                        // 检查当前资源是否支持新控制器，如果不支持则切换到第一个可用资源
-                        const newControllerResources = allResources.filter((r) => {
-                          if (r.controller && r.controller.length > 0) {
-                            return r.controller.includes(controller.name);
+                          // 检查当前资源是否支持新控制器，如果不支持则切换到第一个可用资源
+                          const newControllerResources = allResources.filter((r) => {
+                            if (r.controller && r.controller.length > 0) {
+                              return r.controller.includes(controller.name);
+                            }
+                            return true;
+                          });
+
+                          const currentResourceSupported = newControllerResources.some(
+                            (r) => r.name === currentResourceName,
+                          );
+
+                          if (!currentResourceSupported && newControllerResources.length > 0) {
+                            // 当前资源不支持新控制器，切换到第一个可用资源
+                            setSelectedResource(instanceId, newControllerResources[0].name);
+                            // 资源切换后需要重新加载
+                            setIsResourceLoaded(false);
+                            setInstanceResourceLoaded(instanceId, false);
+                            lastLoadedResourceRef.current = null;
+                          } else {
+                            // 资源不变，但新实例需要重新绑定资源
+                            setIsResourceLoaded(false);
+                            setInstanceResourceLoaded(instanceId, false);
+                            lastLoadedResourceRef.current = null;
                           }
-                          return true;
-                        });
-
-                        const currentResourceSupported = newControllerResources.some(
-                          (r) => r.name === currentResourceName,
-                        );
-
-                        if (!currentResourceSupported && newControllerResources.length > 0) {
-                          // 当前资源不支持新控制器，切换到第一个可用资源
-                          setSelectedResource(instanceId, newControllerResources[0].name);
-                          // 资源切换后需要重新加载
-                          setIsResourceLoaded(false);
-                          setInstanceResourceLoaded(instanceId, false);
-                          lastLoadedResourceRef.current = null;
-                        } else {
-                          // 资源不变，但新实例需要重新绑定资源
-                          setIsResourceLoaded(false);
-                          setInstanceResourceLoaded(instanceId, false);
-                          lastLoadedResourceRef.current = null;
-                        }
-                      }}
-                      disabled={isConnecting || isSearching || isRunning}
-                      className={clsx(
-                        'px-2 py-0.5 text-xs rounded-md transition-colors',
-                        currentControllerName === controller.name
-                          ? 'bg-accent text-white'
-                          : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover',
-                        (isConnecting || isSearching || isRunning) &&
-                          'opacity-50 cursor-not-allowed',
-                      )}
-                    >
-                      {getControllerDisplayName(controller)}
-                    </button>
-                  ))}
+                        }}
+                        disabled={isConnecting || isSearching || isRunning}
+                        className={clsx(
+                          'px-2 py-0.5 text-xs rounded-md transition-colors',
+                          currentControllerName === controller.name
+                            ? 'bg-accent text-white'
+                            : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover',
+                          (isConnecting || isSearching || isRunning) &&
+                            'opacity-50 cursor-not-allowed',
+                        )}
+                      >
+                        {getControllerDisplayName(controller)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

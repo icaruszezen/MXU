@@ -345,6 +345,7 @@ export default {
     lastSelected: '上次选择 · 点击搜索',
     savedDeviceNotFound: '未找到上次的设备，请检查连接或重新选择',
     savedWindowNotFound: '未找到上次的窗口，请检查连接或重新选择',
+    connectedLog: '已连接控制器 [{{name}}]',
   },
 
   // 资源

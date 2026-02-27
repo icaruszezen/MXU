@@ -345,6 +345,7 @@ export default {
     lastSelected: '上次選擇 · 點擊搜尋',
     savedDeviceNotFound: '未找到上次的裝置，請檢查連接或重新選擇',
     savedWindowNotFound: '未找到上次的視窗，請檢查連接或重新選擇',
+    connectedLog: '已連接控制器 [{{name}}]',
   },
 
   // 資源
