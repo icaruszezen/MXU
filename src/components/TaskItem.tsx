@@ -374,13 +374,21 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
     if (!isIncompatible) return '';
     const reasons: string[] = [];
     if (isControllerIncompatible) {
-      reasons.push(t('taskItem.incompatibleController'));
+      let msg = t('taskItem.incompatibleController');
+      if (taskDef?.controller && taskDef.controller.length > 0) {
+        const labels = taskDef.controller.map((name) => {
+          const ctrl = projectInterface?.controller.find((c) => c.name === name);
+          return ctrl ? resolveI18nText(ctrl.label, langKey) || ctrl.name : name;
+        });
+        msg += `\n${t('taskItem.supportedControllers', { controllers: labels.join(', ') })}`;
+      }
+      reasons.push(msg);
     }
     if (isResourceIncompatible) {
       reasons.push(t('taskItem.incompatibleResource'));
     }
     return reasons.join(', ');
-  }, [isIncompatible, isControllerIncompatible, isResourceIncompatible, t]);
+  }, [isIncompatible, isControllerIncompatible, isResourceIncompatible, t, taskDef?.controller, projectInterface?.controller, resolveI18nText, langKey]);
 
   // 紧凑模式：实例运行时，未启用的任务显示为紧凑样式
   const isCompact = isInstanceRunning && !task.enabled;

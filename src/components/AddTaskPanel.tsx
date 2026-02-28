@@ -203,7 +203,15 @@ export function AddTaskPanel() {
     if (isIncompatible) {
       const reasons: string[] = [];
       if (isControllerIncompatible) {
-        reasons.push(t('taskItem.incompatibleController'));
+        let msg = t('taskItem.incompatibleController');
+        if (task.controller && task.controller.length > 0) {
+          const labels = task.controller.map((name) => {
+            const ctrl = projectInterface?.controller.find((c) => c.name === name);
+            return ctrl ? resolveI18nText(ctrl.label, langKey) || ctrl.name : name;
+          });
+          msg += `\n${t('taskItem.supportedControllers', { controllers: labels.join(', ') })}`;
+        }
+        reasons.push(msg);
       }
       if (isResourceIncompatible) {
         reasons.push(t('taskItem.incompatibleResource'));
